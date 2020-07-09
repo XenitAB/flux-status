@@ -2,11 +2,14 @@ TAG = latest
 #TAG = $(shell git describe --tags --exact-match || git describe --always --dirty)
 IMG ?= xenitab/flux-status:$(TAG)
 
-test:
-	go test ./...
+fmt:
+	go fmt ./...
 
-build:
-	go build -o bin/flux-status cmd/flux-status/main.go
+vet:
+	go vet ./...
+
+test: fmt vet
+	go test ./...
 
 deploy:
 	kustomize build  manifests | kubectl  apply -f -

@@ -11,7 +11,7 @@ import (
 )
 
 type AzureDevops struct {
-	connection   *azuredevops.Connection
+	client       git.Client
 	repositoryId string
 	projectId    string
 }
@@ -29,8 +29,13 @@ func NewAzureDevops(pat string, gitUrl string) (*AzureDevops, error) {
 		connection = azuredevops.NewPatConnection(azdoConfig.orgUrl, pat)
 	}
 
+	client := connection.GetClientByUrl(azdoConfig.orgUrl)
+	gitClient := &git.ClientImpl{
+		Client: *client,
+	}
+
 	azdo := &AzureDevops{
-		connection:   connection,
+		client:       gitClient,
 		projectId:    azdoConfig.projectId,
 		repositoryId: azdoConfig.repositoryId,
 	}
@@ -41,11 +46,6 @@ func NewAzureDevops(pat string, gitUrl string) (*AzureDevops, error) {
 // Send updates a given commit in AzureDevops with a status.
 func (azdo AzureDevops) Send(e Event) error {
 	ctx := context.Background()
-	gitClient, err := git.NewClient(ctx, azdo.connection)
-	if err != nil {
-		return err
-	}
-
 	args := git.CreateCommitStatusArgs{
 		Project:      &azdo.projectId,
 		RepositoryId: &azdo.repositoryId,
@@ -59,7 +59,7 @@ func (azdo AzureDevops) Send(e Event) error {
 			},
 		},
 	}
-	_, err = gitClient.CreateCommitStatus(ctx, args)
+	_, err := azdo.client.CreateCommitStatus(ctx, args)
 	if err != nil {
 		return err
 	}
@@ -99,8 +99,8 @@ func parseAzdoGitUrl(s string) (*azdoConfig, error) {
 
 	components := strings.Split(u.Path, "/")
 
-	if u.Scheme == "https" {
-		orgUrl := "https://" + u.Host + "/" + components[1]
+	if u.Scheme == "https" || u.Scheme == "http" {
+		orgUrl := u.Scheme + "://" + u.User.String() + "@" + u.Host + "/" + components[1]
 		projectId := components[2]
 		repositoryId := components[4]
 

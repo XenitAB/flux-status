@@ -13,12 +13,12 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	// Read Flux event
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 	fluxEvent := flux.Event{}
 	if err := json.Unmarshal(body, &fluxEvent); err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 
@@ -26,7 +26,7 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	event := convertToEvent(fluxEvent)
 	if err := s.Exporter.Send(event); err != nil {
 		s.Log.Error(err, "Could not send event through exporter")
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 

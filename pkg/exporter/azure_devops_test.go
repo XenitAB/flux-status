@@ -13,7 +13,7 @@ func TestParseAzdoGitUrlHttps(t *testing.T) {
 		return
 	}
 
-	if c.orgUrl != "https://dev.azure.com/org" {
+	if c.orgUrl != "https://foobar@dev.azure.com/org" {
 		fmt.Println(c.orgUrl)
 		t.Fail()
 		return

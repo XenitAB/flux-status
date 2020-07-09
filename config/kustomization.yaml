@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- github.com/fluxcd/flux/deploy?ref=v1.19.0
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: flux
+    namespace: flux
+  spec:
+    template:
+      spec:
+        containers:
+        - name: flux-status
+          imagePullPolicy: IfNotPresent
+          image: xenitab/flux-status:latest
+          ports:
+          - containerPort: 3000
+          args:
+          - --git-url=<url>
+          - --azdo-pat=<secret>
+patchesJSON6902:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: flux
+    namespace: flux
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/1/args/-
+      value: --connect=ws://127.0.0.1:3000
+    - op: add
+      path: /spec/template/spec/containers/1/args/-
+      value: --git-poll-interval=30s
+    - op: add
+      path: /spec/template/spec/containers/1/args/-
+      value: --git-url=<url>
+    - op: add
+      path: /spec/template/spec/containers/1/args/-
+      value: --registry-disable-scanning
