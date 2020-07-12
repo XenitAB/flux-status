@@ -6,10 +6,13 @@ const (
 	EventStateFailed    = iota
 	EventStatePending   = iota
 	EventStateSucceeded = iota
+	EventStateCanceled  = iota
 )
 
 type Event struct {
-	Sender   string
+	Id       string
+	Event    string
+	Instance string
 	Message  string
 	CommitId string
 	State    EventState

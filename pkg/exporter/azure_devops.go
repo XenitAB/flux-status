@@ -16,8 +16,8 @@ type AzureDevops struct {
 	projectId    string
 }
 
-func NewAzureDevops(pat string, gitUrl string) (*AzureDevops, error) {
-	azdoConfig, err := parseAzdoGitUrl(gitUrl)
+func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
+	azdoConfig, err := parseAzdoUrl(url)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (azdo AzureDevops) Send(e Event) error {
 			State:       gitStatus(e.State),
 			Context: &git.GitStatusContext{
 				Genre: stringPointer("flux-status"),
-				Name:  &e.Sender,
+				Name:  &e.Id,
 			},
 		},
 	}
@@ -67,8 +67,8 @@ func (azdo AzureDevops) Send(e Event) error {
 	return nil
 }
 
-func stringPointer(v string) *string {
-	return &v
+func (AzureDevops) String() string {
+	return "Azure DevOps"
 }
 
 // gitStatus returns the correct git status based on the success state.
@@ -91,7 +91,7 @@ type azdoConfig struct {
 	repositoryId string
 }
 
-func parseAzdoGitUrl(s string) (*azdoConfig, error) {
+func parseAzdoUrl(s string) (*azdoConfig, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, err

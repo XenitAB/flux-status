@@ -8,9 +8,10 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2
 	github.com/microsoft/azure-devops-go-api/azuredevops v1.0.0-b3
-	github.com/sirupsen/logrus v1.5.0
+	github.com/onsi/gomega v1.10.1
 	github.com/spf13/pflag v1.0.5
-	github.com/whilp/git-urls v0.0.0-20191001220047-6db9661140c0
+	github.com/xanzy/go-gitlab v0.33.0
 	go.uber.org/zap v1.15.0
-	k8s.io/legacy-cloud-providers v0.18.5
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
+	google.golang.org/appengine v1.5.0 // indirect
 )

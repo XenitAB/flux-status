@@ -19,8 +19,8 @@ patchesStrategicMerge:
           ports:
           - containerPort: 3000
           args:
-          - --git-url=<url>
-          - --azdo-pat=<secret>
+          - --git-url=<git-url>
+          - --gitlab-token=<token>
 patchesJSON6902:
 - target:
     group: apps
@@ -37,7 +37,7 @@ patchesJSON6902:
       value: --git-poll-interval=30s
     - op: add
       path: /spec/template/spec/containers/1/args/-
-      value: --git-url=<url>
+      value: --git-url=https://gitlab.com/phillebaba/flux-status-test.git
     - op: add
       path: /spec/template/spec/containers/1/args/-
       value: --registry-disable-scanning

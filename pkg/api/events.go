@@ -32,6 +32,7 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Poll workload status
 	if event.State != exporter.EventStateFailed {
+		s.Poller.Stop()
 		go func() {
 			if err := s.Poller.Poll(event.CommitId, s.Exporter); err != nil {
 				s.Log.Error(err, "Polling service status failed")
@@ -60,7 +61,9 @@ func convertToEvent(e flux.Event) exporter.Event {
 	}
 
 	return exporter.Event{
-		Sender:   "flux",
+		Id:       "flux-status",
+		Instance: "dev",
+		Event:    "sync",
 		Message:  message,
 		CommitId: commitId,
 		State:    state,
