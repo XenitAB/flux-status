@@ -2,6 +2,10 @@ TAG = dev
 #TAG = $(shell git describe --tags --exact-match || git describe --always --dirty)
 IMG ?= quay.io/xenitab/flux-status:$(TAG)
 
+assets:
+	draw.io -b 10 -x -f png -p 0 -o assets/workflow.png assets/diagram.drawio
+.PHONY: assets
+
 fmt:
 	go fmt ./...
 
