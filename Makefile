@@ -1,6 +1,6 @@
-TAG = latest
+TAG = dev
 #TAG = $(shell git describe --tags --exact-match || git describe --always --dirty)
-IMG ?= xenitab/flux-status:$(TAG)
+IMG ?= quay.io/xenitab/flux-status:$(TAG)
 
 fmt:
 	go fmt ./...
