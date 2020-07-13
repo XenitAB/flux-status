@@ -19,38 +19,60 @@ import (
 	"github.com/xenitab/flux-status/pkg/poller"
 )
 
+func getLogger(debug bool) (logr.Logger, error) {
+	var zapLog *zap.Logger
+	var err error
+	if debug {
+		zapLog, err = zap.NewDevelopment()
+	} else {
+		zapLog, err = zap.NewProduction()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return zapr.NewLogger(zapLog), nil
+}
+
 func main() {
 	// Flags
+	debug := flag.Bool("debug", false, "Enables debug mode.")
 	port := flag.Int("port", 3000, "Port to bind server to.")
-	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
-	azdoPat := flag.String("azdo-pat", "", "PAT to authenticate to Azure DevOps with.")
 	fluxPort := flag.Int("flux-port", 3030, "Port for Flux api.")
-	pollInterval := flag.Int("poll-intervall", 2, "Duration in seconds between each service poll.")
-	pollTimeout := flag.Int("poll-timeout", 20, "Duration in seconds before stopping poll.")
+	pollWorkloads := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
+	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
+	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
+	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
+	azdoPat := flag.String("azdo-pat", "", "Tokent to authenticate with Azure DevOps.")
+	gitlabToken := flag.String("gitlab-token", "", "Token to authenticate with Gitlab.")
 	flag.Parse()
 
 	// Logs
-	var log logr.Logger
-	zapLog, err := zap.NewDevelopment()
+	log, err := getLogger(*debug)
 	if err != nil {
 		panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 	}
-	log = zapr.NewLogger(zapLog)
 	setupLog := log.WithName("setup")
 
-	// Setup
+	// Start Server
 	setupLog.Info("Staring flux-status")
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start Server
-	azdo, err := exporter.NewAzureDevops(*azdoPat, *gitUrl)
+	exporter, err := exporter.GetExporter(*gitUrl, *azdoPat, *gitlabToken)
 	if err != nil {
-		setupLog.Error(err, "Could not configure exporter")
+		setupLog.Error(err, "Error getting exporter", "url", gitUrl)
 		os.Exit(1)
 	}
-	poller := poller.NewPoller(log.WithName("poller"), *fluxPort, *pollInterval, *pollTimeout)
-	apiServer := api.NewServer(azdo, poller, log.WithName("api-server"))
+	log.Info("Using exporter with name", "exporter", exporter.String())
+
+	var p *poller.Poller
+	if *pollWorkloads {
+		p = poller.NewPoller(log.WithName("poller"), *fluxPort, *pollInterval, *pollTimeout)
+	}
+
+	apiServer := api.NewServer(exporter, p, log.WithName("api-server"))
 	go func() {
 		if err := apiServer.Start("localhost:" + strconv.Itoa(*port)); err != nil {
 			log.Error(err, "Error occured when running http server")
