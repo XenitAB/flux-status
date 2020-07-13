@@ -1,76 +1,91 @@
 package poller
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/fluxcd/flux/pkg/api/v6"
+	transport "github.com/fluxcd/flux/pkg/http"
+	"github.com/fluxcd/flux/pkg/http/client"
+	"github.com/fluxcd/flux/pkg/resource"
 	"github.com/go-logr/logr"
 
 	"github.com/xenitab/flux-status/pkg/exporter"
-	"github.com/xenitab/flux-status/pkg/flux"
 )
 
 type Poller struct {
-	Log        logr.Logger
-	Interval   int
-	Timeout    int
-	ServiceUrl string
+	Log      logr.Logger
+	Interval int
+	Timeout  int
 
-	stop chan bool
+	client *client.Client
+	stop   chan bool
 }
 
 func NewPoller(l logr.Logger, fp int, pi int, pt int) *Poller {
+	fluxUrl := "http://localhost:" + strconv.Itoa(fp) + "/api/flux"
 	return &Poller{
-		Log:        l,
-		Interval:   pi,
-		Timeout:    pt,
-		ServiceUrl: "http://localhost:" + strconv.Itoa(fp) + "/api/flux/v6/services",
-		stop:       make(chan bool),
+		Log:      l,
+		Interval: pi,
+		Timeout:  pt,
+		client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl, ""),
+		stop:     make(chan bool),
 	}
 }
 
-func (p *Poller) Poll(commitId string, e exporter.Exporter) error {
+func (p *Poller) Poll(commitId string, exp exporter.Exporter) error {
 	p.Log.Info("Started polling", "commit-id", commitId)
-	event := exporter.Event{
+
+	baseEvent := exporter.Event{
 		Id:       "flux-status",
 		Event:    "workload",
 		Instance: "dev",
-		Message:  "Polling workload status",
 		CommitId: commitId,
-		State:    exporter.EventStatePending,
 	}
-	if err := e.Send(event); err != nil {
+
+	// Snap shot intitial workloads
+	ctx := context.Background()
+	workloads, err := p.client.ListServices(ctx, "")
+	if err != nil {
+		return err
+	}
+	snap := snapshotWorkloads(workloads)
+
+	// Send pending event
+	pendingEvent := baseEvent
+	pendingEvent.State = exporter.EventStatePending
+	pendingEvent.Message = "Waiting for workloads to be ready"
+	if err := exp.Send(pendingEvent); err != nil {
 		return err
 	}
 
+	// Poll workloads until timeout or ready
 	var timeout <-chan time.Time
 	if p.Timeout != 0 {
 		timeout = time.After(time.Duration(p.Timeout) * time.Second)
 	}
 	tick := time.Tick(time.Duration(p.Interval) * time.Second)
-
 	for {
 		select {
 		case <-p.stop:
 			p.Log.Info("Poller stopped")
-			if err := handleStop(e, event); err != nil {
+			if err := handleStop(exp, baseEvent); err != nil {
 				return err
 			}
 			return nil
 		case <-timeout:
 			p.Log.Info("Poller timed out")
-			if err := handleTimeout(e, event); err != nil {
+			if err := handleTimeout(exp, baseEvent); err != nil {
 				return err
 			}
 			return errors.New("Timed Out")
 		case <-tick:
 			p.Log.Info("Poller tick")
-			if err := handleTick(e, event, p.ServiceUrl); err != nil {
+			if err := handleTick(exp, p.client, baseEvent, snap); err != nil {
 				p.Log.Error(err, "All workloads are not healthy")
 				continue
 			}
@@ -86,58 +101,66 @@ func (p *Poller) Stop() {
 	p.stop = make(chan bool)
 }
 
+// snapshotWorkloads returns a list of resource ids created by flux
+func snapshotWorkloads(ww []v6.ControllerStatus) resource.IDSet {
+	result := resource.IDSet{}
+	for _, w := range ww {
+		if w.ReadOnly != "NotInRepo" {
+			result.Add([]resource.ID{w.ID})
+		}
+	}
+
+	return result
+}
+
+func handleTick(e exporter.Exporter, c *client.Client, ev exporter.Event, snap resource.IDSet) error {
+	ctx := context.Background()
+	workloads, err := c.ListServices(ctx, "")
+	if err != nil {
+		return err
+	}
+
+	// Make sure initial snapshot matches currently generated snapshot
+	newSnap := snapshotWorkloads(workloads)
+	if len(newSnap.Intersection(snap)) != len(snap) {
+		return errors.New("Current workloads do not match workloads at sync")
+	}
+
+	pending := pendingWorkloads(workloads)
+	if len(pending) > 0 {
+		return fmt.Errorf("Pending: %v", pending)
+	}
+
+	ev.Message = "All workloads have started successfully"
+	ev.State = exporter.EventStateSucceeded
+	return e.Send(ev)
+}
+
 func handleStop(e exporter.Exporter, ev exporter.Event) error {
-	ev.Message = "Workload check stopped"
+	ev.Message = "Workload polling stopped"
 	ev.State = exporter.EventStateCanceled
 	return e.Send(ev)
 }
 
 func handleTimeout(e exporter.Exporter, ev exporter.Event) error {
-	ev.Message = "Service health check timed out"
+	ev.Message = "Workload polling timed out"
 	ev.State = exporter.EventStateFailed
 	return e.Send(ev)
 }
 
-func handleTick(e exporter.Exporter, ev exporter.Event, url string) error {
-	ev.Message = "All Services are running"
-	ev.State = exporter.EventStateSucceeded
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	services := &[]flux.Service{}
-	if err := json.Unmarshal(body, services); err != nil {
-		return err
-	}
-
-	pendingServices := verifyServices(*services)
-	if len(pendingServices) > 0 {
-		return fmt.Errorf("Waiting for workloads: %v", pendingServices)
-	}
-
-	return e.Send(ev)
-}
-
-func verifyServices(ss []flux.Service) []string {
-	result := []string{}
-	for _, s := range ss {
-		if s.ReadOnly == "NotInRepo" {
+// verifyServices returns any workload created by flux that is not ready
+func pendingWorkloads(ww []v6.ControllerStatus) resource.IDSet {
+	result := resource.IDSet{}
+	for _, w := range ww {
+		if w.ReadOnly == v6.ReadOnlyMissing {
 			continue
 		}
 
-		if s.Status == "deployed" || s.Status == "ready" {
+		if w.Status == "deployed" || w.Status == "ready" {
 			continue
 		}
 
-		result = append(result, s.Id)
+		result.Add([]resource.ID{w.ID})
 	}
 
 	return result

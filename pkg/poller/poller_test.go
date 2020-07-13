@@ -3,76 +3,77 @@ package poller
 import (
 	"testing"
 
+	v6 "github.com/fluxcd/flux/pkg/api/v6"
+	"github.com/fluxcd/flux/pkg/resource"
 	"github.com/onsi/gomega"
-	"github.com/xenitab/flux-status/pkg/flux"
 )
 
 func TestVerifyReadyDeployment(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	ss := []flux.Service{
+	ww := []v6.ControllerStatus{
 		{
-			Id:       "namespace:deployment/resource-name",
+			ID:       resource.MustParseID("namespace:deployment/resource-name"),
 			Status:   "ready",
 			ReadOnly: "ReadOnlyMode",
 		},
 	}
-	res := verifyServices(ss)
-	g.Expect(res).Should(gomega.Equal([]string{}))
+	res := pendingWorkloads(ww)
+	g.Expect(res.String()).Should(gomega.Equal("{}"))
 }
 
 func TestVerifyNotReadyDeployment(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	ss := []flux.Service{
+	ww := []v6.ControllerStatus{
 		{
-			Id:       "namespace:deployment/resource-name",
+			ID:       resource.MustParseID("namespace:deployment/resource-name"),
 			Status:   "updating",
 			ReadOnly: "ReadOnlyMode",
 		},
 	}
-	res := verifyServices(ss)
-	g.Expect(res).Should(gomega.Equal([]string{"namespace:deployment/resource-name"}))
+	res := pendingWorkloads(ww)
+	g.Expect(res.String()).Should(gomega.Equal("{namespace:deployment/resource-name}"))
 }
 
 func TestVerifyReadyHelmRelease(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	ss := []flux.Service{
+	ww := []v6.ControllerStatus{
 		{
-			Id:       "namespace:helmrelease/resource-name",
+			ID:       resource.MustParseID("namespace:helmrelease/resource-name"),
 			Status:   "deployed",
 			ReadOnly: "ReadOnlyMode",
 		},
 	}
-	res := verifyServices(ss)
-	g.Expect(res).Should(gomega.Equal([]string{}))
+	res := pendingWorkloads(ww)
+	g.Expect(res.String()).Should(gomega.Equal("{}"))
 }
 
 func TestVerifyNotReadyHelmRelease(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	ss := []flux.Service{
+	ww := []v6.ControllerStatus{
 		{
-			Id:       "namespace:helmrelease/resource-name",
+			ID:       resource.MustParseID("namespace:helmrelease/resource-name"),
 			Status:   "failed",
 			ReadOnly: "ReadOnlyMode",
 		},
 	}
-	res := verifyServices(ss)
-	g.Expect(res).Should(gomega.Equal([]string{"namespace:helmrelease/resource-name"}))
+	res := pendingWorkloads(ww)
+	g.Expect(res.String()).Should(gomega.Equal("{namespace:helmrelease/resource-name}"))
 }
 
 func TestVerifyHelmReleaseWithDeployment(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	ss := []flux.Service{
+	ww := []v6.ControllerStatus{
 		{
-			Id:       "namespace:helmrelease/resource-name",
+			ID:       resource.MustParseID("namespace:helmrelease/resource-name"),
 			Status:   "deployed",
 			ReadOnly: "ReadOnlyMode",
 		},
 		{
-			Id:       "namespace:deployment/resource-name",
+			ID:       resource.MustParseID("namespace:deployment/resource-name"),
 			Status:   "ready",
-			ReadOnly: "NotInRepo",
+			ReadOnly: "ReadOnlyMode",
 		},
 	}
-	res := verifyServices(ss)
-	g.Expect(res).Should(gomega.Equal([]string{}))
+	res := pendingWorkloads(ww)
+	g.Expect(res.String()).Should(gomega.Equal("{}"))
 }

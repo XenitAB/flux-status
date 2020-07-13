@@ -3,6 +3,7 @@ module github.com/xenitab/flux-status
 go 1.14
 
 require (
+	github.com/fluxcd/flux v1.20.0
 	github.com/go-logr/logr v0.2.0
 	github.com/go-logr/zapr v0.2.0
 	github.com/gorilla/mux v1.7.4
@@ -12,6 +13,11 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/xanzy/go-gitlab v0.33.0
 	go.uber.org/zap v1.15.0
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
-	google.golang.org/appengine v1.5.0 // indirect
+)
+
+replace (
+	github.com/docker/docker => github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+	github.com/fluxcd/flux/pkg/install => github.com/fluxcd/flux/pkg/install v0.0.0-20200205115544-4fc656b636e3
+	github.com/fluxcd/helm-operator => github.com/fluxcd/helm-operator v1.0.0-rc9
+	github.com/fluxcd/helm-operator/pkg/install => github.com/fluxcd/helm-operator/pkg/install v0.0.0-20200213151218-f7e487142b46
 )
