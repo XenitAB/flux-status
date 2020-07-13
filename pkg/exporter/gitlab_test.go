@@ -11,5 +11,5 @@ func TestParseHttpUrl(t *testing.T) {
 	s := "https://gitlab.com/namespace/name.git"
 	url, err := parseGitlabUrl(s)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
-	g.Expect(url).Should(gomega.Equal("namespace%2Fname"))
+	g.Expect(url).Should(gomega.Equal("namespace/name"))
 }
