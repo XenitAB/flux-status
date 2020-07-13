@@ -30,7 +30,7 @@ additionalArgs:
 
 extraContainers:
   - name: "flux-status"
-    image: "quay.io/xenitab/flux-status:v0.1.0-rc1"
+    image: "quay.io/xenitab/flux-status:v0.1.0-rc2"
     imagePullPolicy: "IfNotPresent"
     args:
       - --git-url=<git-url>
