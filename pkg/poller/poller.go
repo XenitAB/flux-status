@@ -133,9 +133,11 @@ func verifyServices(ss []flux.Service) []string {
 			continue
 		}
 
-		if s.Status != "ready" {
-			result = append(result, s.Id)
+		if s.Status == "deployed" || s.Status == "ready" {
+			continue
 		}
+
+		result = append(result, s.Id)
 	}
 
 	return result

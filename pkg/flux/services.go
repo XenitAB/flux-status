@@ -1,10 +1,14 @@
 package flux
 
 type Service struct {
-	Id       string
-	ReadOnly string
-	Status   string
-	Rollout  Rollout
+	Id        string
+	ReadOnly  string
+	Status    string
+	Rollout   Rollout
+	SyncError string
+	Automated bool
+	Locked    bool
+	Ignore    bool
 }
 
 type Rollout struct {
