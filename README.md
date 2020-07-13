@@ -28,7 +28,7 @@ git:
 additionalArgs:
   - --connect=ws://localhost:3000
 
-extraContainers
+extraContainers:
   - name: "flux-status"
     image: "quay.io/xenitab/flux-status:v0.1.0-rc1"
     imagePullPolicy: "IfNotPresent"
