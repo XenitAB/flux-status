@@ -14,14 +14,16 @@ import (
 type Server struct {
 	Exporter   exporter.Exporter
 	Poller     *poller.Poller
+	Instance   string
 	Log        logr.Logger
 	httpServer *http.Server
 }
 
-func NewServer(e exporter.Exporter, p *poller.Poller, l logr.Logger) *Server {
+func NewServer(e exporter.Exporter, p *poller.Poller, i string, l logr.Logger) *Server {
 	return &Server{
 		Exporter: e,
 		Poller:   p,
+		Instance: i,
 		Log:      l,
 	}
 }

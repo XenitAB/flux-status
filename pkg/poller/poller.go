@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/fluxcd/flux/pkg/api/v6"
@@ -21,17 +20,19 @@ type Poller struct {
 	Log      logr.Logger
 	Interval int
 	Timeout  int
+	Instance string
 
 	client *client.Client
 	stop   chan bool
 }
 
-func NewPoller(l logr.Logger, fp int, pi int, pt int) *Poller {
-	fluxUrl := "http://localhost:" + strconv.Itoa(fp) + "/api/flux"
+func NewPoller(l logr.Logger, fAddr string, pi int, pt int, i string) *Poller {
+	fluxUrl := "http://" + fAddr + "/api/flux"
 	return &Poller{
 		Log:      l,
 		Interval: pi,
 		Timeout:  pt,
+		Instance: i,
 		client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl, ""),
 		stop:     make(chan bool),
 	}
@@ -43,7 +44,7 @@ func (p *Poller) Poll(commitId string, exp exporter.Exporter) error {
 	baseEvent := exporter.Event{
 		Id:       "flux-status",
 		Event:    "workload",
-		Instance: "dev",
+		Instance: p.Instance,
 		CommitId: commitId,
 	}
 
