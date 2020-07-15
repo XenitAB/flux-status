@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -38,8 +37,9 @@ func getLogger(debug bool) (logr.Logger, error) {
 func main() {
 	// Flags
 	debug := flag.Bool("debug", false, "Enables debug mode.")
-	port := flag.Int("port", 3000, "Port to bind server to.")
-	fluxPort := flag.Int("flux-port", 3030, "Port for Flux api.")
+	listenAddr := flag.String("listen", ":3000", "Address to serve events API on.")
+	fluxAddr := flag.String("flux", "localhost:3030", "Address to communicate with the Flux API through.")
+	instance := flag.String("instance", "", "Id to differentiate between multiple flux-status updating the same repository.")
 	pollWorkloads := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
 	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
 	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
@@ -69,12 +69,12 @@ func main() {
 
 	var p *poller.Poller
 	if *pollWorkloads {
-		p = poller.NewPoller(log.WithName("poller"), *fluxPort, *pollInterval, *pollTimeout)
+		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout, *instance)
 	}
 
-	apiServer := api.NewServer(exporter, p, log.WithName("api-server"))
+	apiServer := api.NewServer(exporter, p, *instance, log.WithName("api-server"))
 	go func() {
-		if err := apiServer.Start("localhost:" + strconv.Itoa(*port)); err != nil {
+		if err := apiServer.Start(*listenAddr); err != nil {
 			log.Error(err, "Error occured when running http server")
 			os.Exit(1)
 		}

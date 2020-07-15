@@ -25,7 +25,7 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send exporter event
-	event, err := convertToEvent(fluxEvent)
+	event, err := convertToEvent(fluxEvent, s.Instance)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -51,7 +51,7 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-func convertToEvent(e event.Event) (exporter.Event, error) {
+func convertToEvent(e event.Event, instance string) (exporter.Event, error) {
 	if e.Metadata.Type() != event.EventSync {
 		return exporter.Event{}, fmt.Errorf("Could not parse event metatada type: %v", e.Metadata.Type())
 	}
@@ -74,7 +74,7 @@ func convertToEvent(e event.Event) (exporter.Event, error) {
 
 	event := exporter.Event{
 		Id:       "flux-status",
-		Instance: "dev",
+		Instance: instance,
 		Event:    "sync",
 		Message:  message,
 		CommitId: commitId,
