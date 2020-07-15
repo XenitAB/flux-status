@@ -39,7 +39,7 @@ func main() {
 	debug := flag.Bool("debug", false, "Enables debug mode.")
 	listenAddr := flag.String("listen", ":3000", "Address to serve events API on.")
 	fluxAddr := flag.String("flux", "localhost:3030", "Address to communicate with the Flux API through.")
-	instance := flag.String("instance", "", "Id to differentiate between multiple flux-status updating the same repository.")
+	instance := flag.String("instance", "default", "Id to differentiate between multiple flux-status updating the same repository.")
 	pollWorkloads := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
 	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
 	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
