@@ -73,7 +73,6 @@ func convertToEvent(e event.Event, instance string) (notifier.Event, error) {
 	}
 
 	event := notifier.Event{
-		Id:       "flux-status",
 		Instance: instance,
 		Event:    "sync",
 		Message:  message,

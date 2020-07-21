@@ -37,7 +37,7 @@ func NewGitlab(token string, url string) (*Gitlab, error) {
 }
 
 func (g Gitlab) Send(e Event) error {
-	name := e.Id + "/" + e.Event + "/" + e.Instance
+	name := StatusId + "/" + e.Event + "/" + e.Instance
 	options := &gitlab.SetCommitStatusOptions{
 		State:       gitlabState(e.State),
 		Description: &e.Message,
@@ -53,7 +53,7 @@ func (g Gitlab) Send(e Event) error {
 }
 
 func (g Gitlab) Get(commitId string, instance string) (*Status, error) {
-  return nil, nil
+	return nil, nil
 }
 
 func (g Gitlab) String() string {

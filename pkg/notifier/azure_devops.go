@@ -46,18 +46,20 @@ func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
 
 // Send updates a given commit in AzureDevops with a status.
 func (azdo AzureDevops) Send(e Event) error {
+	genre := StatusId
 	name := e.Instance + "/" + e.Event
+	state := toAzdoState(e.State)
+
 	ctx := context.Background()
-  state := toAzdoState(e.State)
 	args := git.CreateCommitStatusArgs{
 		Project:      &azdo.projectId,
 		RepositoryId: &azdo.repositoryId,
 		CommitId:     &e.CommitId,
 		GitCommitStatusToCreate: &git.GitStatus{
 			Description: &e.Message,
-			State:      &state,
+			State:       &state,
 			Context: &git.GitStatusContext{
-				Genre: &e.Id,
+				Genre: &genre,
 				Name:  &name,
 			},
 		},
@@ -71,29 +73,29 @@ func (azdo AzureDevops) Send(e Event) error {
 }
 
 func (azdo AzureDevops) Get(commitId string, instance string) (*Status, error) {
-  ctx := context.Background()
-  args := git.GetStatusesArgs{
+	ctx := context.Background()
+	args := git.GetStatusesArgs{
 		Project:      &azdo.projectId,
 		RepositoryId: &azdo.repositoryId,
-    CommitId:  &commitId,
-  }
-  statuses, err := azdo.client.GetStatuses(ctx, args)
-  if err != nil {
-    return nil, err
-  }
+		CommitId:     &commitId,
+	}
+	statuses, err := azdo.client.GetStatuses(ctx, args)
+	if err != nil {
+		return nil, err
+	}
 
-  for _, status := range *statuses {
-    if *status.Context.Genre != "flux-status" && *status.Context.Name != instance + "workload" {
-      continue
-    }
+	for _, status := range *statuses {
+		if *status.Context.Genre != StatusId && *status.Context.Name != instance+"workload" {
+			continue
+		}
 
-    return &Status{
-      Name: *status.Context.Genre + "/" + *status.Context.Name,
-      State: fromAzdoState(*status.State),
-    }, nil
-  }
+		return &Status{
+			Name:  *status.Context.Genre + "/" + *status.Context.Name,
+			State: fromAzdoState(*status.State),
+		}, nil
+	}
 
-  return nil, errors.New("Could not find a matching status")
+	return nil, errors.New("Could not find a matching status")
 }
 
 func (AzureDevops) String() string {
@@ -115,22 +117,22 @@ func toAzdoState(s EventState) git.GitStatusState {
 }
 
 func fromAzdoState(s git.GitStatusState) EventState {
-  switch s {
-  case git.GitStatusStateValues.Failed:
-    return EventStateFailed
-  case git.GitStatusStateValues.Error:
-    return EventStateFailed
-  case git.GitStatusStateValues.Pending:
-    return EventStatePending
-  case git.GitStatusStateValues.Succeeded:
-    return EventStateSucceeded
-  case git.GitStatusStateValues.NotSet:
-    return EventStateFailed
-  case git.GitStatusStateValues.NotApplicable:
-    return EventStateFailed
-  default:
-    return EventStateFailed
-  }
+	switch s {
+	case git.GitStatusStateValues.Failed:
+		return EventStateFailed
+	case git.GitStatusStateValues.Error:
+		return EventStateFailed
+	case git.GitStatusStateValues.Pending:
+		return EventStatePending
+	case git.GitStatusStateValues.Succeeded:
+		return EventStateSucceeded
+	case git.GitStatusStateValues.NotSet:
+		return EventStateFailed
+	case git.GitStatusStateValues.NotApplicable:
+		return EventStateFailed
+	default:
+		return EventStateFailed
+	}
 }
 
 type azdoConfig struct {

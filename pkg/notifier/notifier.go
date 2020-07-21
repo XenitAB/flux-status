@@ -2,6 +2,8 @@ package notifier
 
 import "errors"
 
+const StatusId string = "flux-status"
+
 type EventState string
 
 const (
@@ -12,7 +14,6 @@ const (
 )
 
 type Event struct {
-	Id       string
 	Event    string
 	Instance string
 	Message  string
@@ -21,13 +22,13 @@ type Event struct {
 }
 
 type Status struct {
-  Name string `json:"name"`
-  State EventState `json:"state"`
+	Name  string     `json:"name"`
+	State EventState `json:"state"`
 }
 
 type Notifier interface {
 	Send(Event) error
-  Get(string, string) (*Status, error)
+	Get(string, string) (*Status, error)
 	String() string
 }
 

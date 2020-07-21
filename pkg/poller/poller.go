@@ -42,7 +42,6 @@ func (p *Poller) Poll(commitId string, exp notifier.Notifier) error {
 	p.Log.Info("Started polling", "commit-id", commitId)
 
 	baseEvent := notifier.Event{
-		Id:       "flux-status",
 		Event:    "workload",
 		Instance: p.Instance,
 		CommitId: commitId,
