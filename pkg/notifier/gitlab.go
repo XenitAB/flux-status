@@ -9,11 +9,12 @@ import (
 )
 
 type Gitlab struct {
-	Id     string
-	client *gitlab.Client
+	instance string
+	id       string
+	client   *gitlab.Client
 }
 
-func NewGitlab(token string, url string) (*Gitlab, error) {
+func NewGitlab(inst string, url string, token string) (*Gitlab, error) {
 	if len(token) == 0 {
 		return nil, errors.New("Gitlab token can't be empty")
 	}
@@ -29,22 +30,23 @@ func NewGitlab(token string, url string) (*Gitlab, error) {
 	}
 
 	gitlab := &Gitlab{
-		Id:     id,
-		client: client,
+		instance: inst,
+		id:       id,
+		client:   client,
 	}
 
 	return gitlab, nil
 }
 
 func (g Gitlab) Send(e Event) error {
-	name := StatusId + "/" + e.Event + "/" + e.Instance
+	name := StatusId + "/" + e.Event + "/" + g.instance
 	options := &gitlab.SetCommitStatusOptions{
 		State:       gitlabState(e.State),
 		Description: &e.Message,
 		Name:        &name,
 	}
 
-	_, _, err := g.client.Commits.SetCommitStatus(g.Id, e.CommitId, options)
+	_, _, err := g.client.Commits.SetCommitStatus(g.id, e.CommitId, options)
 	if err != nil {
 		return err
 	}
@@ -52,12 +54,12 @@ func (g Gitlab) Send(e Event) error {
 	return nil
 }
 
-func (g Gitlab) Get(commitId string, instance string) (*Status, error) {
+func (g Gitlab) Get(commitId string) (*Status, error) {
 	return nil, nil
 }
 
 func (g Gitlab) String() string {
-	return "Gitlab" + " " + g.Id
+	return "Gitlab" + " " + g.id
 }
 
 func gitlabState(s EventState) gitlab.BuildStateValue {

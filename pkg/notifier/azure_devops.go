@@ -12,12 +12,13 @@ import (
 )
 
 type AzureDevops struct {
+	instance     string
 	client       git.Client
 	repositoryId string
 	projectId    string
 }
 
-func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
+func NewAzureDevops(inst string, url string, pat string) (*AzureDevops, error) {
 	azdoConfig, err := parseAzdoUrl(url)
 	if err != nil {
 		return nil, err
@@ -36,6 +37,7 @@ func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
 	}
 
 	azdo := &AzureDevops{
+		instance:     inst,
 		client:       gitClient,
 		projectId:    azdoConfig.projectId,
 		repositoryId: azdoConfig.repositoryId,
@@ -47,7 +49,7 @@ func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
 // Send updates a given commit in AzureDevops with a status.
 func (azdo AzureDevops) Send(e Event) error {
 	genre := StatusId
-	name := e.Instance + "/" + e.Event
+	name := azdo.instance + "/" + e.Event
 	state := toAzdoState(e.State)
 
 	ctx := context.Background()
@@ -72,7 +74,7 @@ func (azdo AzureDevops) Send(e Event) error {
 	return nil
 }
 
-func (azdo AzureDevops) Get(commitId string, instance string) (*Status, error) {
+func (azdo AzureDevops) Get(commitId string) (*Status, error) {
 	ctx := context.Background()
 	args := git.GetStatusesArgs{
 		Project:      &azdo.projectId,
@@ -85,7 +87,7 @@ func (azdo AzureDevops) Get(commitId string, instance string) (*Status, error) {
 	}
 
 	for _, status := range *statuses {
-		if *status.Context.Genre != StatusId && *status.Context.Name != instance+"workload" {
+		if *status.Context.Genre != StatusId && *status.Context.Name != azdo.instance+"workload" {
 			continue
 		}
 

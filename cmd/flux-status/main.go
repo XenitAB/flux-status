@@ -60,7 +60,7 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	notifier, err := notifier.GetNotifier(*gitUrl, *azdoPat, *gitlabToken)
+	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *gitlabToken)
 	if err != nil {
 		setupLog.Error(err, "Error getting Notifier", "url", gitUrl)
 		os.Exit(1)
@@ -69,10 +69,10 @@ func main() {
 
 	var p *poller.Poller
 	if *pollWorkloads {
-		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout, *instance)
+		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout)
 	}
 
-	apiServer := api.NewServer(notifier, p, *instance, log.WithName("api-server"))
+	apiServer := api.NewServer(notifier, p, log.WithName("api-server"))
 	go func() {
 		if err := apiServer.Start(*listenAddr); err != nil {
 			log.Error(err, "Error occured when running http server")

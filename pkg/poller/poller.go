@@ -20,19 +20,17 @@ type Poller struct {
 	Log      logr.Logger
 	Interval int
 	Timeout  int
-	Instance string
 
 	client *client.Client
 	stop   chan bool
 }
 
-func NewPoller(l logr.Logger, fAddr string, pi int, pt int, i string) *Poller {
+func NewPoller(l logr.Logger, fAddr string, pi int, pt int) *Poller {
 	fluxUrl := "http://" + fAddr + "/api/flux"
 	return &Poller{
 		Log:      l,
 		Interval: pi,
 		Timeout:  pt,
-		Instance: i,
 		client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl, ""),
 		stop:     make(chan bool),
 	}
@@ -43,7 +41,6 @@ func (p *Poller) Poll(commitId string, exp notifier.Notifier) error {
 
 	baseEvent := notifier.Event{
 		Event:    "workload",
-		Instance: p.Instance,
 		CommitId: commitId,
 	}
 

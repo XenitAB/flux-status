@@ -19,13 +19,13 @@ func main() {
 	gitlabToken := flag.String("gitlab-token", "", "Token to authenticate with Gitlab.")
 	flag.Parse()
 
-	notifier, err := notifier.GetNotifier(*gitUrl, *azdoPat, *gitlabToken)
+	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *gitlabToken)
 	if err != nil {
 		fmt.Println("Could not create notifier")
 		os.Exit(1)
 	}
 
-	status, err := notifier.Get(*commitId, *instance)
+	status, err := notifier.Get(*commitId)
 	if err != nil {
 		fmt.Printf("Could not get status: %v", err)
 		os.Exit(1)

@@ -14,16 +14,14 @@ import (
 type Server struct {
 	Notifier   notifier.Notifier
 	Poller     *poller.Poller
-	Instance   string
 	Log        logr.Logger
 	httpServer *http.Server
 }
 
-func NewServer(e notifier.Notifier, p *poller.Poller, i string, l logr.Logger) *Server {
+func NewServer(e notifier.Notifier, p *poller.Poller, l logr.Logger) *Server {
 	return &Server{
 		Notifier: e,
 		Poller:   p,
-		Instance: i,
 		Log:      l,
 	}
 }

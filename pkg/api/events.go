@@ -25,7 +25,7 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send notifier event
-	event, err := convertToEvent(fluxEvent, s.Instance)
+	event, err := convertToEvent(fluxEvent)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -51,7 +51,7 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-func convertToEvent(e event.Event, instance string) (notifier.Event, error) {
+func convertToEvent(e event.Event) (notifier.Event, error) {
 	if e.Metadata.Type() != event.EventSync {
 		return notifier.Event{}, fmt.Errorf("Could not parse event metatada type: %v", e.Metadata.Type())
 	}
@@ -73,7 +73,6 @@ func convertToEvent(e event.Event, instance string) (notifier.Event, error) {
 	}
 
 	event := notifier.Event{
-		Instance: instance,
 		Event:    "sync",
 		Message:  message,
 		CommitId: commitId,
