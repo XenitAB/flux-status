@@ -20,7 +20,7 @@ the manifets to the cluster and the state of the workloads after they have been 
 The simplest way to run Flux Status is as a sidecar in the Flux Pod, as it simplifies the lifecycle
 management as the container will be created with Flux.
 
-Given that you are using the [oficial Flux Helm chart](https://github.com/fluxcd/helm-operator/tree/master/chart/helm-operator) use the following values. An additional token argument specific for your git provider is needed for the sider, for more imformation read about [Exporters](## Exporters).
+Given that you are using the [oficial Flux Helm chart](https://github.com/fluxcd/helm-operator/tree/master/chart/helm-operator) use the following values. An additional token argument specific for your git provider is needed for the sider, for more imformation read about [Notifiers](## Notifiers).
 ```yaml
 git:
   url: <git-url>
@@ -36,16 +36,16 @@ extraContainers:
       - --git-url=<git-url>
 ```
 
-## Exporters
-Flux Status uses different exporters depending on the git provider used, and they require different
-types configuration parameters depending on the exporter used. The main parameter needed is the
+## Notifiers
+Flux Status uses different notifier depending on the git provider used, and they require different
+types configuration parameters depending on the notifier used. The main parameter needed is the
 token used to authenticate with the different APIs.
 
 ### Gitlab
-The Gitlab exporter requires an [access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) to authenticate with the Gitlab API. The token should be passed with the `--gitlab-token` flag.
+The Gitlab notifier requires an [access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) to authenticate with the Gitlab API. The token should be passed with the `--gitlab-token` flag.
 
 ### Azure Devops
-The Azure Devops exporter requires a [personal access token]() to autheticate with the Azure Devops API. THhe toke should be passed with the `--azdo-pat` flag.
+The Azure Devops notifier requires a [personal access token]() to autheticate with the Azure Devops API. THhe toke should be passed with the `--azdo-pat` flag.
 
 ### Github
 TBD

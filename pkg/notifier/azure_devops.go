@@ -1,7 +1,8 @@
-package exporter
+package notifier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -47,13 +48,14 @@ func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
 func (azdo AzureDevops) Send(e Event) error {
 	name := e.Instance + "/" + e.Event
 	ctx := context.Background()
+  state := toAzdoState(e.State)
 	args := git.CreateCommitStatusArgs{
 		Project:      &azdo.projectId,
 		RepositoryId: &azdo.repositoryId,
 		CommitId:     &e.CommitId,
 		GitCommitStatusToCreate: &git.GitStatus{
 			Description: &e.Message,
-			State:       gitStatus(e.State),
+			State:      &state,
 			Context: &git.GitStatusContext{
 				Genre: &e.Id,
 				Name:  &name,
@@ -68,22 +70,67 @@ func (azdo AzureDevops) Send(e Event) error {
 	return nil
 }
 
+func (azdo AzureDevops) Get(commitId string, instance string) (*Status, error) {
+  ctx := context.Background()
+  args := git.GetStatusesArgs{
+		Project:      &azdo.projectId,
+		RepositoryId: &azdo.repositoryId,
+    CommitId:  &commitId,
+  }
+  statuses, err := azdo.client.GetStatuses(ctx, args)
+  if err != nil {
+    return nil, err
+  }
+
+  for _, status := range *statuses {
+    if *status.Context.Genre != "flux-status" && *status.Context.Name != instance + "workload" {
+      continue
+    }
+
+    return &Status{
+      Name: *status.Context.Genre + "/" + *status.Context.Name,
+      State: fromAzdoState(*status.State),
+    }, nil
+  }
+
+  return nil, errors.New("Could not find a matching status")
+}
+
 func (AzureDevops) String() string {
 	return "Azure DevOps"
 }
 
 // gitStatus returns the correct git status based on the success state.
-func gitStatus(s EventState) *git.GitStatusState {
+func toAzdoState(s EventState) git.GitStatusState {
 	switch s {
 	case EventStateFailed:
-		return &git.GitStatusStateValues.Error
+		return git.GitStatusStateValues.Error
 	case EventStatePending:
-		return &git.GitStatusStateValues.Pending
+		return git.GitStatusStateValues.Pending
 	case EventStateSucceeded:
-		return &git.GitStatusStateValues.Succeeded
+		return git.GitStatusStateValues.Succeeded
 	default:
-		return &git.GitStatusStateValues.NotSet
+		return git.GitStatusStateValues.NotSet
 	}
+}
+
+func fromAzdoState(s git.GitStatusState) EventState {
+  switch s {
+  case git.GitStatusStateValues.Failed:
+    return EventStateFailed
+  case git.GitStatusStateValues.Error:
+    return EventStateFailed
+  case git.GitStatusStateValues.Pending:
+    return EventStatePending
+  case git.GitStatusStateValues.Succeeded:
+    return EventStateSucceeded
+  case git.GitStatusStateValues.NotSet:
+    return EventStateFailed
+  case git.GitStatusStateValues.NotApplicable:
+    return EventStateFailed
+  default:
+    return EventStateFailed
+  }
 }
 
 type azdoConfig struct {

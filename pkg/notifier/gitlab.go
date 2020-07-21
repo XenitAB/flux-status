@@ -1,4 +1,4 @@
-package exporter
+package notifier
 
 import (
 	"errors"
@@ -50,6 +50,10 @@ func (g Gitlab) Send(e Event) error {
 	}
 
 	return nil
+}
+
+func (g Gitlab) Get(commitId string, instance string) (*Status, error) {
+  return nil, nil
 }
 
 func (g Gitlab) String() string {

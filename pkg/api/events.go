@@ -8,7 +8,7 @@ import (
 
 	"github.com/fluxcd/flux/pkg/event"
 
-	"github.com/xenitab/flux-status/pkg/exporter"
+	"github.com/xenitab/flux-status/pkg/notifier"
 )
 
 func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
@@ -24,24 +24,24 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send exporter event
+	// Send notifier event
 	event, err := convertToEvent(fluxEvent, s.Instance)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if err := s.Exporter.Send(event); err != nil {
-		s.Log.Error(err, "Could not send event through exporter")
+	if err := s.Notifier.Send(event); err != nil {
+		s.Log.Error(err, "Could not send event through notifier")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
 	// Poll workload status
-	if event.State != exporter.EventStateFailed {
+	if event.State != notifier.EventStateFailed {
 		s.Poller.Stop()
 		go func() {
-			if err := s.Poller.Poll(event.CommitId, s.Exporter); err != nil {
+			if err := s.Poller.Poll(event.CommitId, s.Notifier); err != nil {
 				s.Log.Error(err, "Polling service status failed")
 			}
 		}()
@@ -51,28 +51,28 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-func convertToEvent(e event.Event, instance string) (exporter.Event, error) {
+func convertToEvent(e event.Event, instance string) (notifier.Event, error) {
 	if e.Metadata.Type() != event.EventSync {
-		return exporter.Event{}, fmt.Errorf("Could not parse event metatada type: %v", e.Metadata.Type())
+		return notifier.Event{}, fmt.Errorf("Could not parse event metatada type: %v", e.Metadata.Type())
 	}
 
 	syncMetadata := e.Metadata.(*event.SyncEventMetadata)
 	commitId := syncMetadata.Commits[0].Revision
 
 	var message string
-	var state exporter.EventState
+	var state notifier.EventState
 	if len(syncMetadata.Errors) == 0 {
-		state = exporter.EventStateSucceeded
+		state = notifier.EventStateSucceeded
 		message = "Succeeded"
 	} else {
-		state = exporter.EventStateFailed
+		state = notifier.EventStateFailed
 		message = "Errors:"
 		for _, err := range syncMetadata.Errors {
 			message = message + err.ID.String() + ","
 		}
 	}
 
-	event := exporter.Event{
+	event := notifier.Event{
 		Id:       "flux-status",
 		Instance: instance,
 		Event:    "sync",

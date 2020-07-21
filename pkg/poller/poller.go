@@ -13,7 +13,7 @@ import (
 	"github.com/fluxcd/flux/pkg/resource"
 	"github.com/go-logr/logr"
 
-	"github.com/xenitab/flux-status/pkg/exporter"
+	"github.com/xenitab/flux-status/pkg/notifier"
 )
 
 type Poller struct {
@@ -38,10 +38,10 @@ func NewPoller(l logr.Logger, fAddr string, pi int, pt int, i string) *Poller {
 	}
 }
 
-func (p *Poller) Poll(commitId string, exp exporter.Exporter) error {
+func (p *Poller) Poll(commitId string, exp notifier.Notifier) error {
 	p.Log.Info("Started polling", "commit-id", commitId)
 
-	baseEvent := exporter.Event{
+	baseEvent := notifier.Event{
 		Id:       "flux-status",
 		Event:    "workload",
 		Instance: p.Instance,
@@ -58,7 +58,7 @@ func (p *Poller) Poll(commitId string, exp exporter.Exporter) error {
 
 	// Send pending event
 	pendingEvent := baseEvent
-	pendingEvent.State = exporter.EventStatePending
+	pendingEvent.State = notifier.EventStatePending
 	pendingEvent.Message = "Waiting for workloads to be ready"
 	if err := exp.Send(pendingEvent); err != nil {
 		return err
@@ -114,7 +114,7 @@ func snapshotWorkloads(ww []v6.ControllerStatus) resource.IDSet {
 	return result
 }
 
-func handleTick(e exporter.Exporter, c *client.Client, ev exporter.Event, snap resource.IDSet) error {
+func handleTick(e notifier.Notifier, c *client.Client, ev notifier.Event, snap resource.IDSet) error {
 	ctx := context.Background()
 	workloads, err := c.ListServices(ctx, "")
 	if err != nil {
@@ -133,19 +133,19 @@ func handleTick(e exporter.Exporter, c *client.Client, ev exporter.Event, snap r
 	}
 
 	ev.Message = "All workloads have started successfully"
-	ev.State = exporter.EventStateSucceeded
+	ev.State = notifier.EventStateSucceeded
 	return e.Send(ev)
 }
 
-func handleStop(e exporter.Exporter, ev exporter.Event) error {
+func handleStop(e notifier.Notifier, ev notifier.Event) error {
 	ev.Message = "Workload polling stopped"
-	ev.State = exporter.EventStateCanceled
+	ev.State = notifier.EventStateCanceled
 	return e.Send(ev)
 }
 
-func handleTimeout(e exporter.Exporter, ev exporter.Event) error {
+func handleTimeout(e notifier.Notifier, ev notifier.Event) error {
 	ev.Message = "Workload polling timed out"
-	ev.State = exporter.EventStateFailed
+	ev.State = notifier.EventStateFailed
 	return e.Send(ev)
 }
 
