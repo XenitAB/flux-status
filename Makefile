@@ -26,3 +26,6 @@ kind-load:
 
 docker-push:
 	docker push -t ${IMG} .
+
+cli:
+	go build -o bin/flux-status-cli cmd/flux-status-cli/main.go

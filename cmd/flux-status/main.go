@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/xenitab/flux-status/pkg/api"
-	"github.com/xenitab/flux-status/pkg/exporter"
+	"github.com/xenitab/flux-status/pkg/notifier"
 	"github.com/xenitab/flux-status/pkg/poller"
 )
 
@@ -60,19 +60,19 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	exporter, err := exporter.GetExporter(*gitUrl, *azdoPat, *gitlabToken)
+	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *gitlabToken)
 	if err != nil {
-		setupLog.Error(err, "Error getting exporter", "url", gitUrl)
+		setupLog.Error(err, "Error getting Notifier", "url", gitUrl)
 		os.Exit(1)
 	}
-	log.Info("Using exporter with name", "exporter", exporter.String())
+	log.Info("Using notifier", "name", notifier.String())
 
 	var p *poller.Poller
 	if *pollWorkloads {
-		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout, *instance)
+		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout)
 	}
 
-	apiServer := api.NewServer(exporter, p, *instance, log.WithName("api-server"))
+	apiServer := api.NewServer(notifier, p, log.WithName("api-server"))
 	go func() {
 		if err := apiServer.Start(*listenAddr); err != nil {
 			log.Error(err, "Error occured when running http server")

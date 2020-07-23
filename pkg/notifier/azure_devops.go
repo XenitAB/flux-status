@@ -1,7 +1,8 @@
-package exporter
+package notifier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -11,12 +12,13 @@ import (
 )
 
 type AzureDevops struct {
+	instance     string
 	client       git.Client
 	repositoryId string
 	projectId    string
 }
 
-func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
+func NewAzureDevops(inst string, url string, pat string) (*AzureDevops, error) {
 	azdoConfig, err := parseAzdoUrl(url)
 	if err != nil {
 		return nil, err
@@ -35,6 +37,7 @@ func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
 	}
 
 	azdo := &AzureDevops{
+		instance:     inst,
 		client:       gitClient,
 		projectId:    azdoConfig.projectId,
 		repositoryId: azdoConfig.repositoryId,
@@ -45,7 +48,10 @@ func NewAzureDevops(pat string, url string) (*AzureDevops, error) {
 
 // Send updates a given commit in AzureDevops with a status.
 func (azdo AzureDevops) Send(e Event) error {
-	name := e.Instance + "/" + e.Event
+	genre := StatusId
+	name := azdo.instance + "/" + e.Event
+	state := toAzdoState(e.State)
+
 	ctx := context.Background()
 	args := git.CreateCommitStatusArgs{
 		Project:      &azdo.projectId,
@@ -53,9 +59,9 @@ func (azdo AzureDevops) Send(e Event) error {
 		CommitId:     &e.CommitId,
 		GitCommitStatusToCreate: &git.GitStatus{
 			Description: &e.Message,
-			State:       gitStatus(e.State),
+			State:       &state,
 			Context: &git.GitStatusContext{
-				Genre: &e.Id,
+				Genre: &genre,
 				Name:  &name,
 			},
 		},
@@ -68,21 +74,67 @@ func (azdo AzureDevops) Send(e Event) error {
 	return nil
 }
 
+func (azdo AzureDevops) Get(commitId string, action string) (*Status, error) {
+	ctx := context.Background()
+	args := git.GetStatusesArgs{
+		Project:      &azdo.projectId,
+		RepositoryId: &azdo.repositoryId,
+		CommitId:     &commitId,
+	}
+	statuses, err := azdo.client.GetStatuses(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+
+	name := azdo.instance + "/" + action
+	for _, status := range *statuses {
+		if !(*status.Context.Genre == StatusId && *status.Context.Name == name) {
+			continue
+		}
+
+		return &Status{
+			Name:  *status.Context.Genre + "/" + *status.Context.Name,
+			State: fromAzdoState(*status.State),
+		}, nil
+	}
+
+	return nil, errors.New("No status found")
+}
+
 func (AzureDevops) String() string {
 	return "Azure DevOps"
 }
 
 // gitStatus returns the correct git status based on the success state.
-func gitStatus(s EventState) *git.GitStatusState {
+func toAzdoState(s EventState) git.GitStatusState {
 	switch s {
 	case EventStateFailed:
-		return &git.GitStatusStateValues.Error
+		return git.GitStatusStateValues.Error
 	case EventStatePending:
-		return &git.GitStatusStateValues.Pending
+		return git.GitStatusStateValues.Pending
 	case EventStateSucceeded:
-		return &git.GitStatusStateValues.Succeeded
+		return git.GitStatusStateValues.Succeeded
 	default:
-		return &git.GitStatusStateValues.NotSet
+		return git.GitStatusStateValues.NotSet
+	}
+}
+
+func fromAzdoState(s git.GitStatusState) EventState {
+	switch s {
+	case git.GitStatusStateValues.Failed:
+		return EventStateFailed
+	case git.GitStatusStateValues.Error:
+		return EventStateFailed
+	case git.GitStatusStateValues.Pending:
+		return EventStatePending
+	case git.GitStatusStateValues.Succeeded:
+		return EventStateSucceeded
+	case git.GitStatusStateValues.NotSet:
+		return EventStateFailed
+	case git.GitStatusStateValues.NotApplicable:
+		return EventStateFailed
+	default:
+		return EventStateFailed
 	}
 }
 

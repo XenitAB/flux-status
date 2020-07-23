@@ -7,23 +7,21 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 
-	"github.com/xenitab/flux-status/pkg/exporter"
+	"github.com/xenitab/flux-status/pkg/notifier"
 	"github.com/xenitab/flux-status/pkg/poller"
 )
 
 type Server struct {
-	Exporter   exporter.Exporter
+	Notifier   notifier.Notifier
 	Poller     *poller.Poller
-	Instance   string
 	Log        logr.Logger
 	httpServer *http.Server
 }
 
-func NewServer(e exporter.Exporter, p *poller.Poller, i string, l logr.Logger) *Server {
+func NewServer(e notifier.Notifier, p *poller.Poller, l logr.Logger) *Server {
 	return &Server{
-		Exporter: e,
+		Notifier: e,
 		Poller:   p,
-		Instance: i,
 		Log:      l,
 	}
 }
