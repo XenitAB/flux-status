@@ -27,7 +27,7 @@ type Status struct {
 
 type Notifier interface {
 	Send(Event) error
-	Get(string) (*Status, error)
+	Get(string, string) (*Status, error)
 	String() string
 }
 

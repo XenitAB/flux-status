@@ -41,7 +41,7 @@ func NewGitlab(inst string, url string, token string) (*Gitlab, error) {
 func (g Gitlab) Send(e Event) error {
 	name := StatusId + "/" + e.Event + "/" + g.instance
 	options := &gitlab.SetCommitStatusOptions{
-		State:       gitlabState(e.State),
+		State:       toGitlabState(e.State),
 		Description: &e.Message,
 		Name:        &name,
 	}
@@ -54,15 +54,36 @@ func (g Gitlab) Send(e Event) error {
 	return nil
 }
 
-func (g Gitlab) Get(commitId string) (*Status, error) {
-	return nil, nil
+func (g Gitlab) Get(commitId string, action string) (*Status, error) {
+	opts := gitlab.GetCommitStatusesOptions{
+		All: gitlab.Bool(true),
+	}
+	statuses, _, err := g.client.Commits.GetCommitStatuses(g.id, commitId, &opts)
+	if err != nil {
+		return nil, err
+	}
+
+	name := StatusId + "/" + action + "/" + g.instance
+	for _, status := range statuses {
+		if status.Name != name {
+			continue
+		}
+
+		gitlabState := gitlab.BuildStateValue(status.Status)
+		return &Status{
+			Name:  status.Name,
+			State: fromGitlabState(gitlabState),
+		}, nil
+	}
+
+	return nil, errors.New("No status found")
 }
 
 func (g Gitlab) String() string {
 	return "Gitlab" + " " + g.id
 }
 
-func gitlabState(s EventState) gitlab.BuildStateValue {
+func toGitlabState(s EventState) gitlab.BuildStateValue {
 	switch s {
 	case EventStateFailed:
 		return gitlab.Failed
@@ -74,6 +95,21 @@ func gitlabState(s EventState) gitlab.BuildStateValue {
 		return gitlab.Canceled
 	default:
 		return gitlab.Pending
+	}
+}
+
+func fromGitlabState(s gitlab.BuildStateValue) EventState {
+	switch s {
+	case gitlab.Pending, gitlab.Created, gitlab.Running, gitlab.Manual:
+		return EventStatePending
+	case gitlab.Success:
+		return EventStateSucceeded
+	case gitlab.Failed:
+		return EventStateFailed
+	case gitlab.Canceled, gitlab.Skipped:
+		return EventStateCanceled
+	default:
+		return EventStateFailed
 	}
 }
 

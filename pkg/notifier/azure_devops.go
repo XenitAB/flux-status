@@ -74,7 +74,7 @@ func (azdo AzureDevops) Send(e Event) error {
 	return nil
 }
 
-func (azdo AzureDevops) Get(commitId string) (*Status, error) {
+func (azdo AzureDevops) Get(commitId string, action string) (*Status, error) {
 	ctx := context.Background()
 	args := git.GetStatusesArgs{
 		Project:      &azdo.projectId,
@@ -86,8 +86,9 @@ func (azdo AzureDevops) Get(commitId string) (*Status, error) {
 		return nil, err
 	}
 
+	name := azdo.instance + "/" + action
 	for _, status := range *statuses {
-		if *status.Context.Genre != StatusId && *status.Context.Name != azdo.instance+"workload" {
+		if !(*status.Context.Genre == StatusId && *status.Context.Name == name) {
 			continue
 		}
 
@@ -97,7 +98,7 @@ func (azdo AzureDevops) Get(commitId string) (*Status, error) {
 		}, nil
 	}
 
-	return nil, errors.New("Could not find a matching status")
+	return nil, errors.New("No status found")
 }
 
 func (AzureDevops) String() string {
