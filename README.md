@@ -53,5 +53,13 @@ TBD
 ### Bitbucket
 TBD
 
+## CLI
+Flux Status also has a CLI which makes the process of getting the status of a commit set by Flux Status easier. You can download the CLI binary from the [Release Page](https://github.com/XenitAB/flux-status/releases).
+The configuration is similar to the Flux Status daemon. All you need is the instance name, git url, commit id, and token to get the status.
+```shell
+$ flux-status-cli --instance dev  --git-url <git-url> --commit-id <commit-id> --azdo-pat <pat>
+{"name":"flux-status/dev/workload","state":"succeeded"}
+```
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
