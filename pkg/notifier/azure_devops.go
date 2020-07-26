@@ -47,12 +47,11 @@ func NewAzureDevops(inst string, url string, pat string) (*AzureDevops, error) {
 }
 
 // Send updates a given commit in AzureDevops with a status.
-func (azdo AzureDevops) Send(e Event) error {
+func (azdo AzureDevops) Send(ctx context.Context, e Event) error {
 	genre := StatusId
-	name := azdo.instance + "/" + e.Event
+	name := fmt.Sprintf("%v/%v", azdo.instance, e.Type)
 	state := toAzdoState(e.State)
 
-	ctx := context.Background()
 	args := git.CreateCommitStatusArgs{
 		Project:      &azdo.projectId,
 		RepositoryId: &azdo.repositoryId,

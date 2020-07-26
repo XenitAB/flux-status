@@ -12,6 +12,7 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/spf13/pflag v1.0.5
 	github.com/xanzy/go-gitlab v0.33.0
+	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.15.0
 )
 

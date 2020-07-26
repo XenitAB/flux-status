@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sync"
 	"time"
 
 	"github.com/fluxcd/flux/pkg/api/v6"
@@ -13,89 +15,140 @@ import (
 	"github.com/fluxcd/flux/pkg/resource"
 	"github.com/go-logr/logr"
 
+	"github.com/xenitab/flux-status/pkg/flux"
 	"github.com/xenitab/flux-status/pkg/notifier"
 )
 
 type Poller struct {
 	Log      logr.Logger
+	Notifier notifier.Notifier
+	Events   <-chan string
 	Interval int
 	Timeout  int
-
-	client *client.Client
-	stop   chan bool
+	client   flux.Client
 }
 
-func NewPoller(l logr.Logger, fAddr string, pi int, pt int) *Poller {
-	fluxUrl := "http://" + fAddr + "/api/flux"
+func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string, pi int, pt int) (*Poller, error) {
+	fluxUrl, err := url.Parse(fmt.Sprintf("http://%v/api/flux", fAddr))
+	if err != nil {
+		return nil, err
+	}
+	client := client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl.String(), "")
+
 	return &Poller{
 		Log:      l,
+		Events:   e,
+		Notifier: n,
 		Interval: pi,
 		Timeout:  pt,
-		client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl, ""),
-		stop:     make(chan bool),
+		client:   client,
+	}, nil
+}
+
+// Starts the poller and waits for new events
+func (p *Poller) Start(ctx context.Context) error {
+	p.Log.Info("Started poller")
+	wg := sync.WaitGroup{}
+	var pollCtx context.Context
+	var pollCancel context.CancelFunc = func() {}
+	for {
+		select {
+		case <-ctx.Done():
+			p.Log.Info("Stopping poller")
+			pollCancel()
+			wg.Wait()
+			return nil
+		case commitId := <-p.Events:
+			p.Log.Info("Received event", "commitId", commitId)
+			pollCancel()
+			pollCtx, pollCancel = context.WithCancel(ctx)
+			wg.Add(1)
+			go p.poll(pollCtx, &wg, commitId)
+		}
 	}
 }
 
-func (p *Poller) Poll(commitId string, exp notifier.Notifier) error {
-	p.Log.Info("Started polling", "commit-id", commitId)
+func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) error {
+	defer wg.Done()
+	log := p.Log.WithValues("commitId", commitId)
 
-	baseEvent := notifier.Event{
-		Event:    "workload",
+	// Sed pending event
+	p.Notifier.Send(ctx, notifier.Event{
+		Type:     notifier.EventTypeWorkload,
 		CommitId: commitId,
-	}
+		State:    notifier.EventStatePending,
+		Message:  "Waiting for workloads to be ready",
+	})
 
 	// Snap shot intitial workloads
-	ctx := context.Background()
 	workloads, err := p.client.ListServices(ctx, "")
 	if err != nil {
 		return err
 	}
 	snap := snapshotWorkloads(workloads)
 
-	// Send pending event
-	pendingEvent := baseEvent
-	pendingEvent.State = notifier.EventStatePending
-	pendingEvent.Message = "Waiting for workloads to be ready"
-	if err := exp.Send(pendingEvent); err != nil {
-		return err
-	}
-
-	// Poll workloads until timeout or ready
-	var timeout <-chan time.Time
-	if p.Timeout != 0 {
-		timeout = time.After(time.Duration(p.Timeout) * time.Second)
-	}
-	tick := time.Tick(time.Duration(p.Interval) * time.Second)
+	// Start polling workloads
+	tickCh := time.NewTicker(time.Duration(p.Interval) * time.Second)
+	timeoutCh := time.NewTimer(time.Duration(p.Timeout) * time.Second)
 	for {
 		select {
-		case <-p.stop:
-			p.Log.Info("Poller stopped")
-			if err := handleStop(exp, baseEvent); err != nil {
+		case <-ctx.Done():
+			//log.Info("Poller stopped")
+			log.Error(errors.New(commitId), "Poller Stopped")
+			tickCh.Stop()
+			timeoutCh.Stop()
+			return p.Notifier.Send(ctx, notifier.Event{
+				Type:     notifier.EventTypeWorkload,
+				CommitId: commitId,
+				State:    notifier.EventStateCanceled,
+				Message:  "Workload polling stopped",
+			})
+		case <-timeoutCh.C:
+			//log.Info("Poller timed out")
+			log.Error(errors.New(commitId), "Poller timed out")
+			tickCh.Stop()
+			timeoutCh.Stop()
+			return p.Notifier.Send(ctx, notifier.Event{
+				Type:     notifier.EventTypeWorkload,
+				CommitId: commitId,
+				State:    notifier.EventStateFailed,
+				Message:  "Workload polling timed out",
+			})
+		case <-tickCh.C:
+			//log.Info("Poller tick")
+			log.Error(errors.New(commitId), "Poller Tick")
+
+			// Make a new snapshot of the workload state
+			newWorkloads, err := p.client.ListServices(ctx, "")
+			if err != nil {
 				return err
 			}
-			return nil
-		case <-timeout:
-			p.Log.Info("Poller timed out")
-			if err := handleTimeout(exp, baseEvent); err != nil {
-				return err
-			}
-			return errors.New("Timed Out")
-		case <-tick:
-			p.Log.Info("Poller tick")
-			if err := handleTick(exp, p.client, baseEvent, snap); err != nil {
-				p.Log.Error(err, "All workloads are not healthy")
+			newSnap := snapshotWorkloads(newWorkloads)
+
+			// Make sure initial snapshot matches currently generated snapshot
+			if len(newSnap.Intersection(snap)) != len(snap) {
+				log.Info("Current workloads do not match workloads at sync")
 				continue
 			}
-			p.Log.Info("All workloads are healthy")
+
+			// Check if there are any pending workloads
+			pending := pendingWorkloads(workloads)
+			if len(pending) > 0 {
+				log.Info("Waiting for workloads to be healthy", "pending", pending)
+				continue
+			}
+
+			// End poller as it has successfully completed
+			log.Info("All workloads are healthy")
+			p.Notifier.Send(ctx, notifier.Event{
+				Type:     notifier.EventTypeWorkload,
+				CommitId: commitId,
+				State:    notifier.EventStateSucceeded,
+				Message:  "All workloads have started successfully",
+			})
 			return nil
 		}
 	}
-}
-
-func (p *Poller) Stop() {
-	p.Log.Info("Stopping poller")
-	close(p.stop)
-	p.stop = make(chan bool)
 }
 
 // snapshotWorkloads returns a list of resource ids created by flux
@@ -108,41 +161,6 @@ func snapshotWorkloads(ww []v6.ControllerStatus) resource.IDSet {
 	}
 
 	return result
-}
-
-func handleTick(e notifier.Notifier, c *client.Client, ev notifier.Event, snap resource.IDSet) error {
-	ctx := context.Background()
-	workloads, err := c.ListServices(ctx, "")
-	if err != nil {
-		return err
-	}
-
-	// Make sure initial snapshot matches currently generated snapshot
-	newSnap := snapshotWorkloads(workloads)
-	if len(newSnap.Intersection(snap)) != len(snap) {
-		return errors.New("Current workloads do not match workloads at sync")
-	}
-
-	pending := pendingWorkloads(workloads)
-	if len(pending) > 0 {
-		return fmt.Errorf("Pending: %v", pending)
-	}
-
-	ev.Message = "All workloads have started successfully"
-	ev.State = notifier.EventStateSucceeded
-	return e.Send(ev)
-}
-
-func handleStop(e notifier.Notifier, ev notifier.Event) error {
-	ev.Message = "Workload polling stopped"
-	ev.State = notifier.EventStateCanceled
-	return e.Send(ev)
-}
-
-func handleTimeout(e notifier.Notifier, ev notifier.Event) error {
-	ev.Message = "Workload polling timed out"
-	ev.State = notifier.EventStateFailed
-	return e.Send(ev)
 }
 
 // verifyServices returns any workload created by flux that is not ready

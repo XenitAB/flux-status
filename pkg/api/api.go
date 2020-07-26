@@ -8,20 +8,19 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/xenitab/flux-status/pkg/notifier"
-	"github.com/xenitab/flux-status/pkg/poller"
 )
 
 type Server struct {
 	Notifier   notifier.Notifier
-	Poller     *poller.Poller
+	Events     chan<- string
 	Log        logr.Logger
 	httpServer *http.Server
 }
 
-func NewServer(e notifier.Notifier, p *poller.Poller, l logr.Logger) *Server {
+func NewServer(n notifier.Notifier, e chan<- string, l logr.Logger) *Server {
 	return &Server{
-		Notifier: e,
-		Poller:   p,
+		Notifier: n,
+		Events:   e,
 		Log:      l,
 	}
 }

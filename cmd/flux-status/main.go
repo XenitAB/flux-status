@@ -40,7 +40,7 @@ func main() {
 	listenAddr := flag.String("listen", ":3000", "Address to serve events API on.")
 	fluxAddr := flag.String("flux", "localhost:3030", "Address to communicate with the Flux API through.")
 	instance := flag.String("instance", "default", "Id to differentiate between multiple flux-status updating the same repository.")
-	pollWorkloads := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
+	_ = flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
 	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
 	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
 	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
@@ -55,11 +55,13 @@ func main() {
 	}
 	setupLog := log.WithName("setup")
 
-	// Start Server
+	// Setup
 	setupLog.Info("Staring flux-status")
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	events := make(chan string, 1)
 
+	// Get Notifier
 	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *gitlabToken)
 	if err != nil {
 		setupLog.Error(err, "Error getting Notifier", "url", gitUrl)
@@ -67,12 +69,20 @@ func main() {
 	}
 	log.Info("Using notifier", "name", notifier.String())
 
-	var p *poller.Poller
-	if *pollWorkloads {
-		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout)
+	// Start Poller
+	p, err := poller.NewPoller(log.WithName("poller"), notifier, events, *fluxAddr, *pollInterval, *pollTimeout)
+	if err != nil {
+		setupLog.Error(err, "Error creating poller")
 	}
+	go func() {
+		if err := p.Start(context.Background()); err != nil {
+			log.Error(err, "Error occured when running poller")
+			os.Exit(1)
+		}
+	}()
 
-	apiServer := api.NewServer(notifier, p, log.WithName("api-server"))
+	// Start Server
+	apiServer := api.NewServer(notifier, events, log.WithName("api-server"))
 	go func() {
 		if err := apiServer.Start(*listenAddr); err != nil {
 			log.Error(err, "Error occured when running http server")
