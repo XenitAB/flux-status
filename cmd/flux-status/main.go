@@ -75,10 +75,12 @@ func main() {
 		errc <- fmt.Errorf("%s", <-c)
 	}()
 
-	events := make(chan string, 1)
+	// Channel is nil if poller is not enabled
+	var events chan string = nil
 
 	// Start Poller
 	if *enablePoller {
+		events = make(chan string, 1)
 		shutdownWg.Add(1)
 		p, err := poller.NewPoller(log.WithName("poller"), notifier, events, *fluxAddr, *pollInterval, *pollTimeout)
 		if err != nil {

@@ -27,8 +27,8 @@ func NewServer(n notifier.Notifier, e chan<- string, l logr.Logger) *Server {
 
 func (s *Server) Start(addr string) error {
 	router := mux.NewRouter()
-	router.HandleFunc("/v6/events", s.HandleEvents)
-	router.PathPrefix("/").HandlerFunc(s.HandleWebsocket)
+	router.HandleFunc("/v6/events", eventHandler(s.Log, s.Notifier, s.Events))
+	router.PathPrefix("/").HandlerFunc(websocketHandler(s.Log))
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
