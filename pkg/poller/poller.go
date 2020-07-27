@@ -51,7 +51,6 @@ func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string
 
 // Starts the poller and waits for new events
 func (p *Poller) Start() error {
-	p.Log.Info("Started poller")
 	wg := sync.WaitGroup{}
 	var pollCtx context.Context
 	var pollCancel context.CancelFunc = func() {}
@@ -61,7 +60,6 @@ func (p *Poller) Start() error {
 			pollCancel()
 			return nil
 		case commitId := <-p.Events:
-			p.Log.Info("Received event", "commitId", commitId)
 			pollCancel()
 			pollCtx, pollCancel = context.WithCancel(context.Background())
 			wg.Add(1)
@@ -71,8 +69,6 @@ func (p *Poller) Start() error {
 }
 
 func (p *Poller) Stop(ctx context.Context) error {
-	p.Log.Info("Stopping poller")
-
 	c := make(chan struct{})
 	go func() {
 		defer close(c)
@@ -93,6 +89,7 @@ func (p *Poller) Stop(ctx context.Context) error {
 func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) error {
 	defer wg.Done()
 	log := p.Log.WithValues("commitId", commitId)
+	log.Info("Received event")
 
 	// Sed pending event
 	p.Notifier.Send(ctx, notifier.Event{
