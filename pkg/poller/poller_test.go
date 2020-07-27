@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -98,8 +99,6 @@ func TestPollSuccessful(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	g := gomega.NewGomegaWithT(t)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
 	log := logr.TestLogger{T: t}
 	events := make(chan string)
 	noti := notifier.NewMock()
@@ -111,9 +110,11 @@ func TestPollSuccessful(t *testing.T) {
 		Events:   events,
 		Interval: 3,
 		Timeout:  10,
-		client:   client,
+		Client:   client,
+		wg:       sync.WaitGroup{},
+		quit:     make(chan struct{}),
 	}
-	go poller.Start(ctx)
+	go poller.Start()
 
 	for i := 0; i < 5; i++ {
 		commitId := randHash()
@@ -130,14 +131,14 @@ func TestPollSuccessful(t *testing.T) {
 		})))
 		g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 	}
+
+	poller.Stop(context.TODO())
 }
 
 func TestPollTimeout(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	g := gomega.NewGomegaWithT(t)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
 	log := logr.TestLogger{T: t}
 	events := make(chan string)
 	noti := notifier.NewMock()
@@ -149,9 +150,11 @@ func TestPollTimeout(t *testing.T) {
 		Events:   events,
 		Interval: 3,
 		Timeout:  10,
-		client:   client,
+		Client:   client,
+		wg:       sync.WaitGroup{},
+		quit:     make(chan struct{}),
 	}
-	go poller.Start(ctx)
+	go poller.Start()
 
 	client.Services = []v6.ControllerStatus{
 		{
@@ -174,14 +177,14 @@ func TestPollTimeout(t *testing.T) {
 		"State":    gomega.Equal(notifier.EventStateFailed),
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
+
+	poller.Stop(context.TODO())
 }
 
 func TestPollCancel(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	g := gomega.NewGomegaWithT(t)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
 	log := logr.TestLogger{T: t}
 	events := make(chan string)
 	noti := notifier.NewMock()
@@ -193,9 +196,11 @@ func TestPollCancel(t *testing.T) {
 		Events:   events,
 		Interval: 1,
 		Timeout:  10,
-		client:   client,
+		Client:   client,
+		wg:       sync.WaitGroup{},
+		quit:     make(chan struct{}),
 	}
-	go poller.Start(ctx)
+	go poller.Start()
 
 	client.Services = []v6.ControllerStatus{
 		{
@@ -230,4 +235,40 @@ func TestPollCancel(t *testing.T) {
 		"State":    gomega.Equal(notifier.EventStateSucceeded),
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
+
+	poller.Stop(context.TODO())
+}
+
+func TestPollShutdown(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	g := gomega.NewGomegaWithT(t)
+
+	log := logr.TestLogger{T: t}
+	events := make(chan string)
+	noti := notifier.NewMock()
+	client := &flux.Mock{}
+
+	poller := Poller{
+		Log:      log,
+		Notifier: noti,
+		Events:   events,
+		Interval: 1,
+		Timeout:  10,
+		Client:   client,
+		wg:       sync.WaitGroup{},
+		quit:     make(chan struct{}),
+	}
+	go poller.Start()
+
+	client.Services = []v6.ControllerStatus{
+		{
+			ID:       resource.MustParseID("namespace:helmrelease/resource-name"),
+			Status:   "failed",
+			ReadOnly: "ReadOnlyMode",
+		},
+	}
+
+	events <- randHash()
+	g.Eventually(noti.Events, 5).Should(gomega.Receive())
+	poller.Stop(context.TODO())
 }

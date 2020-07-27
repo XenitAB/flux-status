@@ -25,7 +25,10 @@ type Poller struct {
 	Events   <-chan string
 	Interval int
 	Timeout  int
-	client   flux.Client
+	Client   flux.Client
+
+	wg   sync.WaitGroup
+	quit chan struct{}
 }
 
 func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string, pi int, pt int) (*Poller, error) {
@@ -33,7 +36,6 @@ func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string
 	if err != nil {
 		return nil, err
 	}
-	client := client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl.String(), "")
 
 	return &Poller{
 		Log:      l,
@@ -41,29 +43,50 @@ func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string
 		Notifier: n,
 		Interval: pi,
 		Timeout:  pt,
-		client:   client,
+		Client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl.String(), ""),
+
+		wg:   sync.WaitGroup{},
+		quit: make(chan struct{}),
 	}, nil
 }
 
 // Starts the poller and waits for new events
-func (p *Poller) Start(ctx context.Context) error {
+func (p *Poller) Start() error {
 	p.Log.Info("Started poller")
 	wg := sync.WaitGroup{}
 	var pollCtx context.Context
 	var pollCancel context.CancelFunc = func() {}
 	for {
 		select {
-		case <-ctx.Done():
-			p.Log.Info("Stopping poller")
+		case <-p.quit:
 			pollCancel()
-			wg.Wait()
 			return nil
 		case commitId := <-p.Events:
 			p.Log.Info("Received event", "commitId", commitId)
 			pollCancel()
-			pollCtx, pollCancel = context.WithCancel(ctx)
+			pollCtx, pollCancel = context.WithCancel(context.Background())
 			wg.Add(1)
 			go p.poll(pollCtx, &wg, commitId)
+		}
+	}
+}
+
+func (p *Poller) Stop(ctx context.Context) error {
+	p.Log.Info("Stopping poller")
+
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		p.wg.Wait()
+	}()
+
+	close(p.quit)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-c:
+			return nil
 		}
 	}
 }
@@ -81,7 +104,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 	})
 
 	// Snap shot intitial workloads
-	workloads, err := p.client.ListServices(ctx, "")
+	workloads, err := p.Client.ListServices(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -119,7 +142,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 			log.Error(errors.New(commitId), "Poller Tick")
 
 			// Make a new snapshot of the workload state
-			newWorkloads, err := p.client.ListServices(ctx, "")
+			newWorkloads, err := p.Client.ListServices(ctx, "")
 			if err != nil {
 				return err
 			}
