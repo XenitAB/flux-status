@@ -88,7 +88,7 @@ func (p *Poller) Stop(ctx context.Context) error {
 
 func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) error {
 	defer wg.Done()
-	log := p.Log.WithValues("commitId", commitId)
+	log := p.Log.WithValues("commit-id", commitId)
 	log.Info("Received event")
 
 	// Sed pending event
