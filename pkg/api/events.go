@@ -31,20 +31,15 @@ func (s *Server) HandleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Notifier.Send(event); err != nil {
+	if err := s.Notifier.Send(r.Context(), event); err != nil {
 		s.Log.Error(err, "Could not send event through notifier")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	// Poll workload status
+	// Only send commit Event if it not failed
 	if event.State != notifier.EventStateFailed {
-		s.Poller.Stop()
-		go func() {
-			if err := s.Poller.Poll(event.CommitId, s.Notifier); err != nil {
-				s.Log.Error(err, "Polling service status failed")
-			}
-		}()
+		s.Events <- event.CommitId
 	}
 
 	s.Log.Info("Sent sync event", "commit-id", event.CommitId)
@@ -72,12 +67,10 @@ func convertToEvent(e event.Event) (notifier.Event, error) {
 		}
 	}
 
-	event := notifier.Event{
-		Event:    "sync",
+	return notifier.Event{
+		Type:     notifier.EventTypeSync,
 		Message:  message,
 		CommitId: commitId,
 		State:    state,
-	}
-
-	return event, nil
+	}, nil
 }

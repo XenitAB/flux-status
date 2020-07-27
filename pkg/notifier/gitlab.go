@@ -1,7 +1,9 @@
 package notifier
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -38,8 +40,8 @@ func NewGitlab(inst string, url string, token string) (*Gitlab, error) {
 	return gitlab, nil
 }
 
-func (g Gitlab) Send(e Event) error {
-	name := StatusId + "/" + e.Event + "/" + g.instance
+func (g Gitlab) Send(ctx context.Context, e Event) error {
+	name := fmt.Sprintf("%v/%v/%v", StatusId, g.instance, e.Type)
 	options := &gitlab.SetCommitStatusOptions{
 		State:       toGitlabState(e.State),
 		Description: &e.Message,

@@ -1,5 +1,4 @@
 TAG = dev
-#TAG = $(shell git describe --tags --exact-match || git describe --always --dirty)
 IMG ?= quay.io/xenitab/flux-status:$(TAG)
 
 assets:
@@ -19,13 +18,13 @@ deploy:
 	kustomize build  manifests | kubectl  apply -f -
 
 docker-build:
-	docker build -t ${IMG} .
+	docker build -t $(IMG) .
 
 kind-load:
 	kind load docker-image $(IMG)
 
 docker-push:
-	docker push -t ${IMG} .
+	docker push $(IMG)
 
 cli:
 	go build -o bin/flux-status-cli cmd/flux-status-cli/main.go

@@ -1,20 +1,30 @@
 package notifier
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 const StatusId string = "flux-status"
+
+type EventType string
+
+const (
+	EventTypeSync     EventType = "sync"
+	EventTypeWorkload EventType = "workload"
+)
 
 type EventState string
 
 const (
-	EventStateFailed    = "failed"
-	EventStatePending   = "pending"
-	EventStateSucceeded = "succeeded"
-	EventStateCanceled  = "canceled"
+	EventStateFailed    EventState = "failed"
+	EventStatePending   EventState = "pending"
+	EventStateSucceeded EventState = "succeeded"
+	EventStateCanceled  EventState = "canceled"
 )
 
 type Event struct {
-	Event    string
+	Type     EventType
 	Message  string
 	CommitId string
 	State    EventState
@@ -26,7 +36,7 @@ type Status struct {
 }
 
 type Notifier interface {
-	Send(Event) error
+	Send(context.Context, Event) error
 	Get(string, string) (*Status, error)
 	String() string
 }

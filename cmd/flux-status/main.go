@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -40,7 +41,7 @@ func main() {
 	listenAddr := flag.String("listen", ":3000", "Address to serve events API on.")
 	fluxAddr := flag.String("flux", "localhost:3030", "Address to communicate with the Flux API through.")
 	instance := flag.String("instance", "default", "Id to differentiate between multiple flux-status updating the same repository.")
-	pollWorkloads := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
+	enablePoller := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
 	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
 	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
 	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
@@ -54,43 +55,70 @@ func main() {
 		panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 	}
 	setupLog := log.WithName("setup")
-
-	// Start Server
 	setupLog.Info("Staring flux-status")
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	// Get Notifier
 	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *gitlabToken)
 	if err != nil {
 		setupLog.Error(err, "Error getting Notifier", "url", gitUrl)
 		os.Exit(1)
 	}
-	log.Info("Using notifier", "name", notifier.String())
+	setupLog.Info("Using notifier", "name", notifier.String())
 
-	var p *poller.Poller
-	if *pollWorkloads {
-		p = poller.NewPoller(log.WithName("poller"), *fluxAddr, *pollInterval, *pollTimeout)
-	}
-
-	apiServer := api.NewServer(notifier, p, log.WithName("api-server"))
+	// Setup
+	shutdownWg := &sync.WaitGroup{}
+	shutdown := make(chan struct{})
+	errc := make(chan error)
 	go func() {
-		if err := apiServer.Start(*listenAddr); err != nil {
-			log.Error(err, "Error occured when running http server")
-			os.Exit(1)
-		}
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		errc <- fmt.Errorf("%s", <-c)
 	}()
 
-	// Blocks until stop singal is sent
-	<-done
-	setupLog.Info("Stopping flux-status")
+	events := make(chan string, 1)
 
-	// Stop server with context
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := apiServer.Stop(ctx); err != nil {
-		log.Error(err, "Error occured when stopping api server")
-		os.Exit(1)
+	// Start Poller
+	if *enablePoller {
+		shutdownWg.Add(1)
+		p, err := poller.NewPoller(log.WithName("poller"), notifier, events, *fluxAddr, *pollInterval, *pollTimeout)
+		if err != nil {
+			errc <- err
+		}
+		go func() {
+			errc <- p.Start()
+		}()
+		go func() {
+			defer shutdownWg.Done()
+			<-shutdown
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := p.Stop(ctx); err != nil {
+				setupLog.Error(err, "Error occured when stopping poller")
+			}
+			setupLog.Info("Stopped poller")
+		}()
 	}
 
-	setupLog.Info("Stopped flux-status successfully")
+	// Start Server
+	shutdownWg.Add(1)
+	apiServer := api.NewServer(notifier, events, log.WithName("api-server"))
+	go func() {
+		errc <- apiServer.Start(*listenAddr)
+	}()
+	go func() {
+		defer shutdownWg.Done()
+		<-shutdown
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := apiServer.Stop(ctx); err != nil {
+			setupLog.Error(err, "Error occured when stopping server")
+		}
+		setupLog.Info("Stopped server")
+	}()
+
+	// Wait until stop signal or error
+	setupLog.Error(<-errc, "Stopping flux-status")
+	close(shutdown)
+	shutdownWg.Wait()
+	setupLog.Info("Stopped flux-status")
 }
