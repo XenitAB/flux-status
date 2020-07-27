@@ -2,7 +2,6 @@ package poller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -112,12 +111,11 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 
 	// Start polling workloads
 	tickCh := time.NewTicker(time.Duration(p.Interval) * time.Second)
-	timeoutCh := time.NewTimer(time.Duration(p.Timeout) * time.Second)
+	timeoutCh := timeoutChannel(p.Timeout)
 	for {
 		select {
 		case <-ctx.Done():
-			//log.Info("Poller stopped")
-			log.Error(errors.New(commitId), "Poller Stopped")
+			log.Info("Poller stopped")
 			tickCh.Stop()
 			timeoutCh.Stop()
 			return p.Notifier.Send(ctx, notifier.Event{
@@ -127,8 +125,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 				Message:  "Workload polling stopped",
 			})
 		case <-timeoutCh.C:
-			//log.Info("Poller timed out")
-			log.Error(errors.New(commitId), "Poller timed out")
+			log.Info("Poller timed out")
 			tickCh.Stop()
 			timeoutCh.Stop()
 			return p.Notifier.Send(ctx, notifier.Event{
@@ -138,8 +135,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 				Message:  "Workload polling timed out",
 			})
 		case <-tickCh.C:
-			//log.Info("Poller tick")
-			log.Error(errors.New(commitId), "Poller Tick")
+			log.Info("Poller tick")
 
 			// Make a new snapshot of the workload state
 			newWorkloads, err := p.Client.ListServices(ctx, "")
@@ -202,4 +198,13 @@ func pendingWorkloads(ww []v6.ControllerStatus) resource.IDSet {
 	}
 
 	return result
+}
+
+func timeoutChannel(timeout int) *time.Timer {
+	timerCh := time.NewTimer(time.Duration(timeout) * time.Second)
+	if timeout == 0 {
+		timerCh.Stop()
+	}
+
+	return timerCh
 }

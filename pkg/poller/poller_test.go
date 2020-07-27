@@ -253,7 +253,7 @@ func TestPollShutdown(t *testing.T) {
 		Notifier: noti,
 		Events:   events,
 		Interval: 1,
-		Timeout:  10,
+		Timeout:  0,
 		Client:   client,
 		wg:       sync.WaitGroup{},
 		quit:     make(chan struct{}),
@@ -268,6 +268,10 @@ func TestPollShutdown(t *testing.T) {
 		},
 	}
 
+	events <- randHash()
+	g.Eventually(noti.Events, 5).Should(gomega.Receive())
+	events <- randHash()
+	g.Eventually(noti.Events, 5).Should(gomega.Receive())
 	events <- randHash()
 	g.Eventually(noti.Events, 5).Should(gomega.Receive())
 	poller.Stop(context.TODO())
