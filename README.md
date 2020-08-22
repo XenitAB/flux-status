@@ -45,10 +45,10 @@ token used to authenticate with the different APIs.
 The Gitlab notifier requires an [access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) to authenticate with the Gitlab API. The token should be passed with the `--gitlab-token` flag.
 
 ### Azure Devops
-The Azure Devops notifier requires a [personal access token]() to autheticate with the Azure Devops API. THhe toke should be passed with the `--azdo-pat` flag.
+The Azure Devops notifier requires a [personal access token]() to authenticate with the Azure Devops API. The toke should be passed with the `--azdo-pat` flag.
 
 ### Github
-TBD
+The Github notifier requires a [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) to authenticate with the API. The token should be passed with the `github-token` flag. Currently the user commiting the status will be the user the token belongs to. There is no way of overriding this currently, but in the future it might be possible to use an oauth app instead.
 
 ### Bitbucket
 TBD
