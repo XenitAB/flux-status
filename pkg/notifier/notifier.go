@@ -41,8 +41,13 @@ type Notifier interface {
 	String() string
 }
 
-func GetNotifier(inst string, url string, azdoPat string, gitlabToken string) (Notifier, error) {
-	gitlab, err := NewGitlab(inst, url, gitlabToken)
+func GetNotifier(inst string, url string, azdoPat string, glToken string, ghToken string) (Notifier, error) {
+	github, err := NewGitHub(inst, url, ghToken)
+	if err == nil {
+		return github, nil
+	}
+
+	gitlab, err := NewGitlab(inst, url, glToken)
 	if err == nil {
 		return gitlab, nil
 	}

@@ -6,6 +6,7 @@ require (
 	github.com/fluxcd/flux v1.20.0
 	github.com/go-logr/logr v0.2.0
 	github.com/go-logr/zapr v0.2.0
+	github.com/google/go-github/v32 v32.1.0
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2
 	github.com/microsoft/azure-devops-go-api/azuredevops v1.0.0-b3
@@ -14,6 +15,7 @@ require (
 	github.com/xanzy/go-gitlab v0.33.0
 	go.uber.org/goleak v1.1.10
 	go.uber.org/zap v1.15.0
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 )
 
 replace (

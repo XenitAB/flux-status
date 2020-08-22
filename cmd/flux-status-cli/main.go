@@ -17,10 +17,11 @@ func main() {
 	action := flag.String("action", "workload", "Action to get status for, either sync or workload.")
 	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
 	azdoPat := flag.String("azdo-pat", "", "Tokent to authenticate with Azure DevOps.")
-	gitlabToken := flag.String("gitlab-token", "", "Token to authenticate with Gitlab.")
+	glToken := flag.String("gitlab-token", "", "Token to authenticate with Gitlab.")
+	ghToken := flag.String("github-token", "", "Token to authenticate with GitHub.")
 	flag.Parse()
 
-	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *gitlabToken)
+	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *glToken, *ghToken)
 	if err != nil {
 		fmt.Println("Could not create notifier")
 		os.Exit(1)
