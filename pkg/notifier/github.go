@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -111,7 +112,9 @@ func parseGitHubUrl(urlStr string) (string, string, error) {
 		return "", "", fmt.Errorf("Not enough components in path %v", u.Path)
 	}
 
-	return comp[1], comp[2], nil
+	owner := comp[1]
+	repo := strings.TrimSuffix(comp[2], filepath.Ext(comp[2]))
+	return owner, repo, nil
 }
 
 func toGitHubState(s EventState) (string, error) {

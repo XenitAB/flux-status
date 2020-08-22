@@ -2,11 +2,11 @@ package poller
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	v6 "github.com/fluxcd/flux/pkg/api/v6"
 	"github.com/fluxcd/flux/pkg/resource"
@@ -90,8 +90,9 @@ func TestVerifyHelmReleaseWithDeployment(t *testing.T) {
 }
 
 func randHash() string {
-	timestamp := time.Now().Unix()
-	commitId := fmt.Sprintf("%x", sha256.Sum256([]byte(string(timestamp))))[:45]
+	data := make([]byte, 10)
+	rand.Read(data)
+	commitId := fmt.Sprintf("%x", sha256.Sum256(data))
 	return commitId
 }
 
