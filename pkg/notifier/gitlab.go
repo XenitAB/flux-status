@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/xanzy/go-gitlab"
@@ -21,12 +22,20 @@ func NewGitlab(inst string, url string, token string) (*Gitlab, error) {
 		return nil, errors.New("Gitlab token can't be empty")
 	}
 
-	id, err := parseGitlabUrl(url)
+	id, bUrl, err := parseGitlabUrl(url)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := gitlab.NewClient(token)
+	gitlabClient := func() (*gitlab.Client, error) {
+		if len(bUrl) == 0 {
+			return gitlab.NewClient(token)
+		}
+
+		return gitlab.NewClient(token, gitlab.WithBaseURL(bUrl))
+	}
+
+	client, err := gitlabClient()
 	if err != nil {
 		return nil, err
 	}
@@ -115,13 +124,20 @@ func fromGitlabState(s gitlab.BuildStateValue) EventState {
 	}
 }
 
-func parseGitlabUrl(s string) (string, error) {
+func parseGitlabUrl(s string) (string, string, error) {
 	u, err := url.Parse(s)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	comp := strings.Split(u.Path, "/")
-	id := comp[1] + "/" + strings.TrimSuffix(comp[2], ".git")
-	return id, nil
+	id := strings.TrimSuffix(u.Path, filepath.Ext(u.Path))
+	// remove '/' prefix
+	id = id[1:]
+
+	basePath := ""
+	if u.Hostname() != "gitlab.com" {
+		basePath = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	}
+
+	return id, basePath, nil
 }

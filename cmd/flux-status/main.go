@@ -44,7 +44,7 @@ func main() {
 	enablePoller := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
 	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
 	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
-	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
+	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as the one given to flux.")
 	azdoPat := flag.String("azdo-pat", "", "Tokent to authenticate with Azure DevOps.")
 	gitlabToken := flag.String("gitlab-token", "", "Token to authenticate with Gitlab.")
 	flag.Parse()

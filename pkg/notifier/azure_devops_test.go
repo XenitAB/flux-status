@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestParseAzdoGitUrlHttps(t *testing.T) {
+func TestParseAzdoUrlHttps(t *testing.T) {
 	s := "https://foobar@dev.azure.com/org/proj/_git/repo"
 	c, err := parseAzdoUrl(s)
 	if err != nil {
@@ -32,7 +32,7 @@ func TestParseAzdoGitUrlHttps(t *testing.T) {
 	}
 }
 
-func TestParseAzdoGitUrlSsh(t *testing.T) {
+func TestParseAzdoUrlSsh(t *testing.T) {
 	s := "ssh://ssh.dev.azure.com/v3/org/proj/repo"
 	c, err := parseAzdoUrl(s)
 	if err != nil {
