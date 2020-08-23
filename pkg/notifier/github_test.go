@@ -6,10 +6,10 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func TestParseGithubUrlHttps(t *testing.T) {
+func TestParseGithubURLHttps(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := "https://github.com/group/name.git"
-	owner, repo, err := parseGitHubUrl(s)
+	owner, repo, err := parseGitHubURL(s)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(owner).Should(gomega.Equal("group"))
 	g.Expect(repo).Should(gomega.Equal("name"))

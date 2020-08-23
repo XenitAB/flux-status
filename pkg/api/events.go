@@ -40,11 +40,11 @@ func eventHandler(log logr.Logger, noti notifier.Notifier, events chan<- string)
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		log.Info("Sent sync event", "commit-id", event.CommitId)
+		log.Info("Sent sync event", "commit-id", event.CommitID)
 
 		// Only send commit Event if it not failed
 		if event.State != notifier.EventStateFailed && events != nil {
-			events <- event.CommitId
+			events <- event.CommitID
 		}
 
 		w.WriteHeader(200)
@@ -57,7 +57,7 @@ func convertToEvent(e event.Event) (notifier.Event, error) {
 	}
 
 	syncMetadata := e.Metadata.(*event.SyncEventMetadata)
-	commitId := syncMetadata.Commits[0].Revision
+	commitID := syncMetadata.Commits[0].Revision
 
 	var message string
 	var state notifier.EventState
@@ -75,7 +75,7 @@ func convertToEvent(e event.Event) (notifier.Event, error) {
 	return notifier.Event{
 		Type:     notifier.EventTypeSync,
 		Message:  message,
-		CommitId: commitId,
+		CommitID: commitID,
 		State:    state,
 	}, nil
 }

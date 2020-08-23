@@ -11,27 +11,29 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/git"
 )
 
+// AzureDevops handles events for AzureDevops repositories.
 type AzureDevops struct {
 	instance     string
 	client       git.Client
-	repositoryId string
-	projectId    string
+	repositoryID string
+	projectID    string
 }
 
+// NewAzureDevops creates and returns an AzureDevops instance.
 func NewAzureDevops(inst string, url string, pat string) (*AzureDevops, error) {
-	azdoConfig, err := parseAzdoUrl(url)
+	azdoConfig, err := parseAzdoURL(url)
 	if err != nil {
 		return nil, err
 	}
 
 	var connection *azuredevops.Connection
 	if len(pat) == 0 {
-		connection = azuredevops.NewAnonymousConnection(azdoConfig.orgUrl)
+		connection = azuredevops.NewAnonymousConnection(azdoConfig.orgURL)
 	} else {
-		connection = azuredevops.NewPatConnection(azdoConfig.orgUrl, pat)
+		connection = azuredevops.NewPatConnection(azdoConfig.orgURL, pat)
 	}
 
-	client := connection.GetClientByUrl(azdoConfig.orgUrl)
+	client := connection.GetClientByUrl(azdoConfig.orgURL)
 	gitClient := &git.ClientImpl{
 		Client: *client,
 	}
@@ -39,23 +41,23 @@ func NewAzureDevops(inst string, url string, pat string) (*AzureDevops, error) {
 	azdo := &AzureDevops{
 		instance:     inst,
 		client:       gitClient,
-		projectId:    azdoConfig.projectId,
-		repositoryId: azdoConfig.repositoryId,
+		projectID:    azdoConfig.projectID,
+		repositoryID: azdoConfig.repositoryID,
 	}
 
 	return azdo, nil
 }
 
-// Send updates a given commit in AzureDevops with a status.
+// Send sets the status for a given commit id in a AzureDevops repository.
 func (azdo AzureDevops) Send(ctx context.Context, e Event) error {
-	genre := StatusId
+	genre := StatusID
 	name := fmt.Sprintf("%v/%v", azdo.instance, e.Type)
 	state := toAzdoState(e.State)
 
 	args := git.CreateCommitStatusArgs{
-		Project:      &azdo.projectId,
-		RepositoryId: &azdo.repositoryId,
-		CommitId:     &e.CommitId,
+		Project:      &azdo.projectID,
+		RepositoryId: &azdo.repositoryID,
+		CommitId:     &e.CommitID,
 		GitCommitStatusToCreate: &git.GitStatus{
 			Description: &e.Message,
 			State:       &state,
@@ -73,12 +75,13 @@ func (azdo AzureDevops) Send(ctx context.Context, e Event) error {
 	return nil
 }
 
-func (azdo AzureDevops) Get(commitId string, action string) (*Status, error) {
+// Get returns the status of a given commit id in a AzureDevops repository.
+func (azdo AzureDevops) Get(commitID string, action string) (*Status, error) {
 	ctx := context.Background()
 	args := git.GetStatusesArgs{
-		Project:      &azdo.projectId,
-		RepositoryId: &azdo.repositoryId,
-		CommitId:     &commitId,
+		Project:      &azdo.projectID,
+		RepositoryId: &azdo.repositoryID,
+		CommitId:     &commitID,
 	}
 	statuses, err := azdo.client.GetStatuses(ctx, args)
 	if err != nil {
@@ -87,7 +90,7 @@ func (azdo AzureDevops) Get(commitId string, action string) (*Status, error) {
 
 	name := azdo.instance + "/" + action
 	for _, status := range *statuses {
-		if !(*status.Context.Genre == StatusId && *status.Context.Name == name) {
+		if !(*status.Context.Genre == StatusID && *status.Context.Name == name) {
 			continue
 		}
 
@@ -100,6 +103,7 @@ func (azdo AzureDevops) Get(commitId string, action string) (*Status, error) {
 	return nil, errors.New("No status found")
 }
 
+// String returns the name of the struct.
 func (AzureDevops) String() string {
 	return "Azure DevOps"
 }
@@ -138,12 +142,12 @@ func fromAzdoState(s git.GitStatusState) EventState {
 }
 
 type azdoConfig struct {
-	orgUrl       string
-	projectId    string
-	repositoryId string
+	orgURL       string
+	projectID    string
+	repositoryID string
 }
 
-func parseAzdoUrl(s string) (*azdoConfig, error) {
+func parseAzdoURL(s string) (*azdoConfig, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, err
@@ -152,25 +156,25 @@ func parseAzdoUrl(s string) (*azdoConfig, error) {
 	components := strings.Split(u.Path, "/")
 
 	if u.Scheme == "https" || u.Scheme == "http" {
-		orgUrl := u.Scheme + "://" + u.User.String() + "@" + u.Host + "/" + components[1]
-		projectId := components[2]
-		repositoryId := components[4]
+		orgURL := u.Scheme + "://" + u.User.String() + "@" + u.Host + "/" + components[1]
+		projectID := components[2]
+		repositoryID := components[4]
 
 		return &azdoConfig{
-			orgUrl:       orgUrl,
-			projectId:    projectId,
-			repositoryId: repositoryId,
+			orgURL:       orgURL,
+			projectID:    projectID,
+			repositoryID: repositoryID,
 		}, nil
 	} else if u.Scheme == "ssh" {
 		host := strings.TrimPrefix(u.Host, "ssh.")
-		orgUrl := "https://" + host + "/" + components[2]
-		projectId := components[3]
-		repositoryId := components[4]
+		orgURL := "https://" + host + "/" + components[2]
+		projectID := components[3]
+		repositoryID := components[4]
 
 		return &azdoConfig{
-			orgUrl:       orgUrl,
-			projectId:    projectId,
-			repositoryId: repositoryId,
+			orgURL:       orgURL,
+			projectID:    projectID,
+			repositoryID: repositoryID,
 		}, nil
 	}
 
