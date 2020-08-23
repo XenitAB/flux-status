@@ -18,6 +18,7 @@ import (
 	"github.com/xenitab/flux-status/pkg/notifier"
 )
 
+// Poller checks the health of workloads.
 type Poller struct {
 	Log      logr.Logger
 	Notifier notifier.Notifier
@@ -30,8 +31,9 @@ type Poller struct {
 	quit chan struct{}
 }
 
+// NewPoller creates and returns a Poller instance.
 func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string, pi int, pt int) (*Poller, error) {
-	fluxUrl, err := url.Parse(fmt.Sprintf("http://%v/api/flux", fAddr))
+	fluxURL, err := url.Parse(fmt.Sprintf("http://%v/api/flux", fAddr))
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +44,14 @@ func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string
 		Notifier: n,
 		Interval: pi,
 		Timeout:  pt,
-		Client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxUrl.String(), ""),
+		Client:   client.New(http.DefaultClient, transport.NewAPIRouter(), fluxURL.String(), ""),
 
 		wg:   sync.WaitGroup{},
 		quit: make(chan struct{}),
 	}, nil
 }
 
-// Starts the poller and waits for new events
+// Start starts the poller and waits for new events.
 func (p *Poller) Start() error {
 	wg := sync.WaitGroup{}
 	var pollCtx context.Context
@@ -59,15 +61,16 @@ func (p *Poller) Start() error {
 		case <-p.quit:
 			pollCancel()
 			return nil
-		case commitId := <-p.Events:
+		case commitID := <-p.Events:
 			pollCancel()
 			pollCtx, pollCancel = context.WithCancel(context.Background())
 			wg.Add(1)
-			go p.poll(pollCtx, &wg, commitId)
+			go p.poll(pollCtx, &wg, commitID)
 		}
 	}
 }
 
+// Stop gracefully cancels any running poll jobs and stops listening for new ones.
 func (p *Poller) Stop(ctx context.Context) error {
 	c := make(chan struct{})
 	go func() {
@@ -86,15 +89,15 @@ func (p *Poller) Stop(ctx context.Context) error {
 	}
 }
 
-func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) error {
+func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) error {
 	defer wg.Done()
-	log := p.Log.WithValues("commit-id", commitId)
+	log := p.Log.WithValues("commit-id", commitID)
 	log.Info("Received event")
 
 	// Sed pending event
 	p.Notifier.Send(ctx, notifier.Event{
 		Type:     notifier.EventTypeWorkload,
-		CommitId: commitId,
+		CommitID: commitID,
 		State:    notifier.EventStatePending,
 		Message:  "Waiting for workloads to be ready",
 	})
@@ -117,7 +120,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 			timeoutCh.Stop()
 			return p.Notifier.Send(ctx, notifier.Event{
 				Type:     notifier.EventTypeWorkload,
-				CommitId: commitId,
+				CommitID: commitID,
 				State:    notifier.EventStateCanceled,
 				Message:  "Workload polling stopped",
 			})
@@ -127,7 +130,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 			timeoutCh.Stop()
 			return p.Notifier.Send(ctx, notifier.Event{
 				Type:     notifier.EventTypeWorkload,
-				CommitId: commitId,
+				CommitID: commitID,
 				State:    notifier.EventStateFailed,
 				Message:  "Workload polling timed out",
 			})
@@ -158,7 +161,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitId string) 
 			log.Info("All workloads are healthy")
 			p.Notifier.Send(ctx, notifier.Event{
 				Type:     notifier.EventTypeWorkload,
-				CommitId: commitId,
+				CommitID: commitID,
 				State:    notifier.EventStateSucceeded,
 				Message:  "All workloads have started successfully",
 			})

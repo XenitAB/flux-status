@@ -44,7 +44,7 @@ func main() {
 	enablePoller := flag.Bool("poll-workloads", true, "Enables polling of workloads after sync.")
 	pollInterval := flag.Int("poll-intervall", 5, "Duration in seconds between each service poll.")
 	pollTimeout := flag.Int("poll-timeout", 0, "Duration in seconds before stopping poll.")
-	gitUrl := flag.String("git-url", "", "URL for git repository, should be same as flux.")
+	gitURL := flag.String("git-url", "", "URL for git repository, should be same as flux.")
 	azdoPat := flag.String("azdo-pat", "", "Tokent to authenticate with Azure DevOps.")
 	glToken := flag.String("gitlab-token", "", "Token to authenticate with Gitlab.")
 	ghToken := flag.String("github-token", "", "Token to authenticate with GitHub.")
@@ -59,9 +59,9 @@ func main() {
 	setupLog.Info("Staring flux-status")
 
 	// Get Notifier
-	notifier, err := notifier.GetNotifier(*instance, *gitUrl, *azdoPat, *glToken, *ghToken)
+	notifier, err := notifier.GetNotifier(*instance, *gitURL, *azdoPat, *glToken, *ghToken)
 	if err != nil {
-		setupLog.Error(err, "Error getting Notifier", "url", gitUrl)
+		setupLog.Error(err, "Error getting Notifier", "url", gitURL)
 		os.Exit(1)
 	}
 	setupLog.Info("Using notifier", "name", notifier.String())

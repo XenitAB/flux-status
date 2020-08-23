@@ -24,7 +24,7 @@ func TestEnabledPoller(t *testing.T) {
 	noti := notifier.NewMock()
 	events := make(chan string, 1)
 
-	commitId := "foobar"
+	commitID := "foobar"
 	fluxEvent := event.Event{
 		ID:         1,
 		Type:       "sync",
@@ -36,7 +36,7 @@ func TestEnabledPoller(t *testing.T) {
 		Metadata: &event.SyncEventMetadata{
 			Commits: []event.Commit{
 				{
-					Revision: commitId,
+					Revision: commitID,
 					Message:  "",
 				},
 			},
@@ -51,10 +51,10 @@ func TestEnabledPoller(t *testing.T) {
 	eventHandler(log, noti, events).ServeHTTP(rr, req)
 	g.Expect(rr.Code).Should(gomega.Equal(http.StatusOK))
 
-	g.Expect(events).Should(gomega.Receive(gomega.Equal(commitId)))
+	g.Expect(events).Should(gomega.Receive(gomega.Equal(commitID)))
 	g.Expect(noti.Events).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeSync),
-		"CommitId": gomega.Equal(commitId),
+		"CommitID": gomega.Equal(commitID),
 		"State":    gomega.Equal(notifier.EventStateSucceeded),
 	})))
 	g.Consistently(events).ShouldNot(gomega.Receive())

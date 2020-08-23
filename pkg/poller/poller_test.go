@@ -92,8 +92,8 @@ func TestVerifyHelmReleaseWithDeployment(t *testing.T) {
 func randHash() string {
 	data := make([]byte, 10)
 	rand.Read(data)
-	commitId := fmt.Sprintf("%x", sha256.Sum256(data))
-	return commitId
+	commitID := fmt.Sprintf("%x", sha256.Sum256(data))
+	return commitID
 }
 
 func TestPollSuccessful(t *testing.T) {
@@ -118,16 +118,16 @@ func TestPollSuccessful(t *testing.T) {
 	go poller.Start()
 
 	for i := 0; i < 5; i++ {
-		commitId := randHash()
-		events <- commitId
+		commitID := randHash()
+		events <- commitID
 		g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Type":     gomega.Equal(notifier.EventTypeWorkload),
-			"CommitId": gomega.Equal(commitId),
+			"CommitID": gomega.Equal(commitID),
 			"State":    gomega.Equal(notifier.EventStatePending),
 		})))
 		g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Type":     gomega.Equal(notifier.EventTypeWorkload),
-			"CommitId": gomega.Equal(commitId),
+			"CommitID": gomega.Equal(commitID),
 			"State":    gomega.Equal(notifier.EventStateSucceeded),
 		})))
 		g.Consistently(noti.Events).ShouldNot(gomega.Receive())
@@ -165,16 +165,16 @@ func TestPollTimeout(t *testing.T) {
 		},
 	}
 
-	commitId := randHash()
-	events <- commitId
+	commitID := randHash()
+	events <- commitID
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitId": gomega.Equal(commitId),
+		"CommitID": gomega.Equal(commitID),
 		"State":    gomega.Equal(notifier.EventStatePending),
 	})))
 	g.Eventually(noti.Events, 12).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitId": gomega.Equal(commitId),
+		"CommitID": gomega.Equal(commitID),
 		"State":    gomega.Equal(notifier.EventStateFailed),
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
@@ -211,28 +211,28 @@ func TestPollCancel(t *testing.T) {
 		},
 	}
 
-	firstCommitId := randHash()
-	events <- firstCommitId
+	firstCommitID := randHash()
+	events <- firstCommitID
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitId": gomega.Equal(firstCommitId),
+		"CommitID": gomega.Equal(firstCommitID),
 		"State":    gomega.Equal(notifier.EventStatePending),
 	})))
-	secondCommitId := randHash()
-	events <- secondCommitId
+	secondCommitID := randHash()
+	events <- secondCommitID
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitId": gomega.Equal(secondCommitId),
+		"CommitID": gomega.Equal(secondCommitID),
 		"State":    gomega.Equal(notifier.EventStatePending),
 	})))
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitId": gomega.Equal(firstCommitId),
+		"CommitID": gomega.Equal(firstCommitID),
 		"State":    gomega.Equal(notifier.EventStateCanceled),
 	})))
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitId": gomega.Equal(secondCommitId),
+		"CommitID": gomega.Equal(secondCommitID),
 		"State":    gomega.Equal(notifier.EventStateSucceeded),
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())

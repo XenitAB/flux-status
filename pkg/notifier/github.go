@@ -13,6 +13,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// GitHub handles events for Github repositories.
 type GitHub struct {
 	Instance   string
 	Owner      string
@@ -20,12 +21,13 @@ type GitHub struct {
 	Client     *github.Client
 }
 
+// NewGitHub returns a new Github instance.
 func NewGitHub(inst string, url string, token string) (*GitHub, error) {
 	if len(token) == 0 {
 		return nil, errors.New("GitHub token can't be empty")
 	}
 
-	owner, repo, err := parseGitHubUrl(url)
+	owner, repo, err := parseGitHubURL(url)
 	if err != nil {
 		return nil, err
 	}
@@ -43,20 +45,21 @@ func NewGitHub(inst string, url string, token string) (*GitHub, error) {
 	}, nil
 }
 
+// Send sets the status for a given commit id in a Github repository.
 func (g GitHub) Send(ctx context.Context, e Event) error {
 	state, err := toGitHubState(e.State)
 	if err != nil {
 		return err
 	}
 
-	githubContext := fmt.Sprintf("%v/%v/%v", StatusId, g.Instance, e.Type)
+	githubContext := fmt.Sprintf("%v/%v/%v", StatusID, g.Instance, e.Type)
 	status := &github.RepoStatus{
 		State:       &state,
 		Description: &e.Message,
 		Context:     &githubContext,
 	}
 
-	_, _, err = g.Client.Repositories.CreateStatus(ctx, g.Owner, g.Repository, e.CommitId, status)
+	_, _, err = g.Client.Repositories.CreateStatus(ctx, g.Owner, g.Repository, e.CommitID, status)
 	if err != nil {
 		return err
 	}
@@ -64,10 +67,11 @@ func (g GitHub) Send(ctx context.Context, e Event) error {
 	return nil
 }
 
-func (g GitHub) Get(commitId string, action string) (*Status, error) {
+// Get returns the status of a given commit id in a Github repository.
+func (g GitHub) Get(commitID string, action string) (*Status, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	statuses, _, err := g.Client.Repositories.ListStatuses(ctx, g.Owner, g.Repository, commitId, nil)
+	statuses, _, err := g.Client.Repositories.ListStatuses(ctx, g.Owner, g.Repository, commitID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +101,12 @@ func (g GitHub) Get(commitId string, action string) (*Status, error) {
 	return nil, errors.New("No status found")
 }
 
+// String returns the name of the struct.
 func (g GitHub) String() string {
 	return "GitHub"
 }
 
-func parseGitHubUrl(urlStr string) (string, string, error) {
+func parseGitHubURL(urlStr string) (string, string, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return "", "", nil

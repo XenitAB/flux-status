@@ -10,6 +10,7 @@ import (
 	"github.com/xenitab/flux-status/pkg/notifier"
 )
 
+// Server implements the api endpoints to receive events sent by Flux.
 type Server struct {
 	Notifier   notifier.Notifier
 	Events     chan<- string
@@ -17,6 +18,7 @@ type Server struct {
 	httpServer *http.Server
 }
 
+// NewServer creates and returns a Server instance.
 func NewServer(n notifier.Notifier, e chan<- string, l logr.Logger) *Server {
 	return &Server{
 		Notifier: n,
@@ -25,6 +27,7 @@ func NewServer(n notifier.Notifier, e chan<- string, l logr.Logger) *Server {
 	}
 }
 
+// Start starts serving the api server.
 func (s *Server) Start(addr string) error {
 	router := mux.NewRouter()
 	router.HandleFunc("/v6/events", eventHandler(s.Log, s.Notifier, s.Events))
@@ -38,6 +41,7 @@ func (s *Server) Start(addr string) error {
 	return s.httpServer.ListenAndServe() // blocking
 }
 
+// Stop gracefully stops serving the api server.
 func (s *Server) Stop(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }

@@ -8,10 +8,13 @@ assets:
 fmt:
 	go fmt ./...
 
+lint:
+	golint ./...
+
 vet:
 	go vet ./...
 
-test: fmt vet
+test: vet lint fmt
 	go test -timeout 1m ./...
 
 deploy:
