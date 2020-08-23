@@ -52,7 +52,7 @@ func NewPoller(l logr.Logger, n notifier.Notifier, e <-chan string, fAddr string
 }
 
 // Start starts the poller and waits for new events.
-func (p *Poller) Start() error {
+func (p *Poller) Start() {
 	wg := sync.WaitGroup{}
 	var pollCtx context.Context
 	var pollCancel context.CancelFunc = func() {}
@@ -60,12 +60,18 @@ func (p *Poller) Start() error {
 		select {
 		case <-p.quit:
 			pollCancel()
-			return nil
+			return
 		case commitID := <-p.Events:
 			pollCancel()
 			pollCtx, pollCancel = context.WithCancel(context.Background())
 			wg.Add(1)
-			go p.poll(pollCtx, &wg, commitID)
+
+			go func() {
+				err := p.poll(pollCtx, &wg, commitID)
+				if err != nil {
+					p.Log.Error(err, "Error occured while polling")
+				}
+			}()
 		}
 	}
 }
@@ -95,12 +101,15 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) 
 	log.Info("Received event")
 
 	// Sed pending event
-	p.Notifier.Send(ctx, notifier.Event{
+	err := p.Notifier.Send(ctx, notifier.Event{
 		Type:     notifier.EventTypeWorkload,
 		CommitID: commitID,
 		State:    notifier.EventStatePending,
 		Message:  "Waiting for workloads to be ready",
 	})
+	if err != nil {
+		return err
+	}
 
 	// Snap shot intitial workloads
 	workloads, err := p.Client.ListServices(ctx, "")
@@ -159,12 +168,16 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) 
 
 			// End poller as it has successfully completed
 			log.Info("All workloads are healthy")
-			p.Notifier.Send(ctx, notifier.Event{
+			err = p.Notifier.Send(ctx, notifier.Event{
 				Type:     notifier.EventTypeWorkload,
 				CommitID: commitID,
 				State:    notifier.EventStateSucceeded,
 				Message:  "All workloads have started successfully",
 			})
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
 	}

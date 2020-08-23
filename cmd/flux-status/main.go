@@ -87,9 +87,7 @@ func main() {
 		if err != nil {
 			errc <- err
 		}
-		go func() {
-			errc <- p.Start()
-		}()
+		go p.Start()
 		go func() {
 			defer shutdownWg.Done()
 			<-shutdown

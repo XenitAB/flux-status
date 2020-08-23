@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 
@@ -91,7 +92,12 @@ func TestVerifyHelmReleaseWithDeployment(t *testing.T) {
 
 func randHash() string {
 	data := make([]byte, 10)
-	rand.Read(data)
+	_, err := rand.Read(data)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	commitID := fmt.Sprintf("%x", sha256.Sum256(data))
 	return commitID
 }
@@ -133,7 +139,8 @@ func TestPollSuccessful(t *testing.T) {
 		g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 	}
 
-	poller.Stop(context.TODO())
+	err := poller.Stop(context.TODO())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }
 
 func TestPollTimeout(t *testing.T) {
@@ -179,7 +186,8 @@ func TestPollTimeout(t *testing.T) {
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 
-	poller.Stop(context.TODO())
+	err := poller.Stop(context.TODO())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }
 
 func TestPollCancel(t *testing.T) {
@@ -237,7 +245,8 @@ func TestPollCancel(t *testing.T) {
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 
-	poller.Stop(context.TODO())
+	err := poller.Stop(context.TODO())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }
 
 func TestPollShutdown(t *testing.T) {
@@ -275,5 +284,7 @@ func TestPollShutdown(t *testing.T) {
 	g.Eventually(noti.Events, 5).Should(gomega.Receive())
 	events <- randHash()
 	g.Eventually(noti.Events, 5).Should(gomega.Receive())
-	poller.Stop(context.TODO())
+
+	err := poller.Stop(context.TODO())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }
