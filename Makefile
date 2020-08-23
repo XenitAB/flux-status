@@ -14,7 +14,7 @@ lint:
 vet:
 	go vet ./...
 
-test: vet lint fmt
+test: vet fmt
 	go test -timeout 1m ./...
 
 deploy:

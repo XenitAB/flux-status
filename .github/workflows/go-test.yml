@@ -1,9 +1,13 @@
-name: Go
-on: [push]
+name: go-test
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 jobs:
   build:
     runs-on: ubuntu-16.04
-    name: Test
+    name: test
     steps:
       - uses: actions/checkout@v2
       - name: Setup go
