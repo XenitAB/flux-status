@@ -67,7 +67,8 @@ func (p *Poller) Start() {
 			wg.Add(1)
 
 			go func() {
-				err := p.poll(pollCtx, &wg, commitID)
+				defer wg.Done()
+				err := p.poll(pollCtx, commitID)
 				if err != nil {
 					p.Log.Error(err, "Error occured while polling")
 				}
@@ -95,8 +96,7 @@ func (p *Poller) Stop(ctx context.Context) error {
 	}
 }
 
-func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) error {
-	defer wg.Done()
+func (p *Poller) poll(ctx context.Context, commitID string) error {
 	log := p.Log.WithValues("commit-id", commitID)
 	log.Info("Received event")
 
@@ -116,12 +116,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) 
 			log.Info("Poller stopped")
 			tickCh.Stop()
 			timeoutCh.Stop()
-			return p.Notifier.Send(ctx, notifier.Event{
-				Type:     notifier.EventTypeWorkload,
-				CommitID: commitID,
-				State:    notifier.EventStateCanceled,
-				Message:  "Workload polling stopped",
-			})
+			return nil
 		case <-timeoutCh.C:
 			log.Info("Poller timed out")
 			tickCh.Stop()
