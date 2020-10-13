@@ -2,12 +2,12 @@ package poller
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
+	"crypto/sha1"
 	"fmt"
-	"os"
+	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	v6 "github.com/fluxcd/flux/pkg/api/v6"
 	"github.com/fluxcd/flux/pkg/resource"
@@ -91,15 +91,10 @@ func TestVerifyHelmReleaseWithDeployment(t *testing.T) {
 }
 
 func randHash() string {
-	data := make([]byte, 10)
-	_, err := rand.Read(data)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	commitID := fmt.Sprintf("%x", sha256.Sum256(data))
-	return commitID
+	timestamp := time.Now().Unix()
+	h := sha1.New()
+	h.Write([]byte(strconv.FormatInt(timestamp, 10)))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func TestPollSuccessful(t *testing.T) {
@@ -124,23 +119,17 @@ func TestPollSuccessful(t *testing.T) {
 	go poller.Start()
 
 	for i := 0; i < 5; i++ {
-		commitID := randHash()
-		events <- commitID
+		commitId := randHash()
+		events <- commitId
 		g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Type":     gomega.Equal(notifier.EventTypeWorkload),
-			"CommitID": gomega.Equal(commitID),
-			"State":    gomega.Equal(notifier.EventStatePending),
-		})))
-		g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Type":     gomega.Equal(notifier.EventTypeWorkload),
-			"CommitID": gomega.Equal(commitID),
+			"CommitId": gomega.Equal(commitId),
 			"State":    gomega.Equal(notifier.EventStateSucceeded),
 		})))
 		g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 	}
 
-	err := poller.Stop(context.TODO())
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	poller.Stop(context.TODO())
 }
 
 func TestPollTimeout(t *testing.T) {
@@ -172,22 +161,16 @@ func TestPollTimeout(t *testing.T) {
 		},
 	}
 
-	commitID := randHash()
-	events <- commitID
-	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitID": gomega.Equal(commitID),
-		"State":    gomega.Equal(notifier.EventStatePending),
-	})))
+	commitId := randHash()
+	events <- commitId
 	g.Eventually(noti.Events, 12).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitID": gomega.Equal(commitID),
+		"CommitId": gomega.Equal(commitId),
 		"State":    gomega.Equal(notifier.EventStateFailed),
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 
-	err := poller.Stop(context.TODO())
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	poller.Stop(context.TODO())
 }
 
 func TestPollCancel(t *testing.T) {
@@ -219,39 +202,27 @@ func TestPollCancel(t *testing.T) {
 		},
 	}
 
-	firstCommitID := randHash()
-	events <- firstCommitID
+	firstCommitId := randHash()
+	events <- firstCommitId
+	secondCommitId := randHash()
+	events <- secondCommitId
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitID": gomega.Equal(firstCommitID),
-		"State":    gomega.Equal(notifier.EventStatePending),
-	})))
-	secondCommitID := randHash()
-	events <- secondCommitID
-	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitID": gomega.Equal(secondCommitID),
-		"State":    gomega.Equal(notifier.EventStatePending),
-	})))
-	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitID": gomega.Equal(firstCommitID),
+		"CommitId": gomega.Equal(firstCommitId),
 		"State":    gomega.Equal(notifier.EventStateCanceled),
 	})))
 	g.Eventually(noti.Events, 5).Should(gomega.Receive(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Type":     gomega.Equal(notifier.EventTypeWorkload),
-		"CommitID": gomega.Equal(secondCommitID),
+		"CommitId": gomega.Equal(secondCommitId),
 		"State":    gomega.Equal(notifier.EventStateSucceeded),
 	})))
 	g.Consistently(noti.Events).ShouldNot(gomega.Receive())
 
-	err := poller.Stop(context.TODO())
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	poller.Stop(context.TODO())
 }
 
 func TestPollShutdown(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	g := gomega.NewGomegaWithT(t)
 
 	log := logr.TestLogger{T: t}
 	events := make(chan string)
@@ -279,12 +250,5 @@ func TestPollShutdown(t *testing.T) {
 	}
 
 	events <- randHash()
-	g.Eventually(noti.Events, 5).Should(gomega.Receive())
-	events <- randHash()
-	g.Eventually(noti.Events, 5).Should(gomega.Receive())
-	events <- randHash()
-	g.Eventually(noti.Events, 5).Should(gomega.Receive())
-
-	err := poller.Stop(context.TODO())
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	poller.Stop(context.TODO())
 }
