@@ -100,17 +100,6 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) 
 	log := p.Log.WithValues("commit-id", commitID)
 	log.Info("Received event")
 
-	// Sed pending event
-	err := p.Notifier.Send(ctx, notifier.Event{
-		Type:     notifier.EventTypeWorkload,
-		CommitID: commitID,
-		State:    notifier.EventStatePending,
-		Message:  "Waiting for workloads to be ready",
-	})
-	if err != nil {
-		return err
-	}
-
 	// Snap shot intitial workloads
 	workloads, err := p.Client.ListServices(ctx, "")
 	if err != nil {
@@ -160,7 +149,7 @@ func (p *Poller) poll(ctx context.Context, wg *sync.WaitGroup, commitID string) 
 			}
 
 			// Check if there are any pending workloads
-			pending := pendingWorkloads(workloads)
+			pending := pendingWorkloads(newWorkloads)
 			if len(pending) > 0 {
 				log.Info("Waiting for workloads to be healthy", "pending", pending)
 				continue
